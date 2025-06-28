@@ -21,9 +21,8 @@
             <span class="font-semibold">Supabase:</span> Tối đa {{ supabaseMaxSizeMB }}MB (Free tier) | 
             <span class="font-semibold">Local:</span> Tối đa {{ localMaxSizeMB }}MB
           </p>
-          <p class="text-xs mt-1">
-            <strong>Lưu ý:</strong> Supabase Free tier có giới hạn 50MB/file và 1GB tổng dung lượng.
-            <br>Để upload file lớn hơn, cần nâng cấp Supabase plan hoặc nén file.
+          <p class="text-xs mt-1 font-medium">
+            <strong>Lưu ý:</strong> Cấm tuyệt đối ae up nhạc quá dài, sập server không có cái mà dùng:)))
           </p>
           <div v-if="storageQuota" class="text-xs mt-2 p-2 bg-blue-100 dark:bg-blue-800 rounded">
             <div class="flex justify-between">
@@ -70,12 +69,12 @@
           {{ isDragOver ? 'Thả file vào đây' : 'Upload File Nhạc' }}
         </h3>
         
-        <p class="text-sm text-gray-500 dark:text-dark-500 mb-4 text-center">
+        <p class="text-sm text-gray-600 dark:text-dark-600 mb-4 text-center font-medium">
           Kéo thả file hoặc click để chọn<br>
           <span class="text-xs">Hỗ trợ MP3, WAV, FLAC, M4A, AAC, OGG</span>
         </p>
         
-        <div class="flex items-center space-x-4 text-xs text-gray-400 dark:text-dark-400">
+        <div class="flex items-center space-x-4 text-xs text-gray-500 dark:text-dark-500">
           <div class="flex items-center space-x-1">
             <div class="w-2 h-2 rounded-full" :class="isSupabaseConnected ? 'bg-green-500' : 'bg-yellow-500'"></div>
             <span>{{ isSupabaseConnected ? 'Lưu trữ vĩnh viễn' : 'Lưu trữ tạm thời' }}</span>
@@ -129,7 +128,7 @@
           <MusicalNoteIcon class="w-5 h-5 text-soundcloud-orange flex-shrink-0" />
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium text-gray-900 dark:text-dark-900 truncate">{{ file.name }}</p>
-            <div class="flex items-center justify-between text-xs text-gray-500 dark:text-dark-500 mt-1">
+            <div class="flex items-center justify-between text-xs text-gray-600 dark:text-dark-600 mt-1">
               <span>{{ formatFileSize(file.size) }}</span>
               <span>{{ file.speed }}</span>
             </div>
@@ -139,11 +138,11 @@
                 :style="{ width: `${file.progress}%` }"
               />
             </div>
-            <div v-if="file.status" class="text-xs mt-1" :class="file.error ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-dark-600'">
+            <div v-if="file.status" class="text-xs mt-1" :class="file.error ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-dark-700'">
               {{ file.status }}
             </div>
           </div>
-          <span class="text-xs text-gray-500 dark:text-dark-500 font-medium">{{ file.progress }}%</span>
+          <span class="text-xs text-gray-600 dark:text-dark-600 font-medium">{{ file.progress }}%</span>
         </div>
       </div>
     </div>
@@ -153,7 +152,7 @@
       <h4 class="text-sm font-medium text-gray-900 dark:text-dark-900">Thông tin bài hát</h4>
       
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-dark-700 mb-2">Tên bài hát *</label>
+        <label class="block text-sm font-medium text-gray-800 dark:text-dark-800 mb-2">Tên bài hát *</label>
         <input
           v-model="pendingTrack.title"
           type="text"
@@ -164,7 +163,7 @@
       </div>
       
       <div>
-        <label class="block text-sm font-medium text-gray-700 dark:text-dark-700 mb-2">Nghệ sĩ *</label>
+        <label class="block text-sm font-medium text-gray-800 dark:text-dark-800 mb-2">Nghệ sĩ *</label>
         <input
           v-model="pendingTrack.artist"
           type="text"
@@ -176,7 +175,7 @@
 
       <!-- File Info Display -->
       <div class="bg-gray-50 dark:bg-dark-200 rounded-lg p-3">
-        <div class="text-xs text-gray-600 dark:text-dark-600 space-y-1">
+        <div class="text-xs text-gray-700 dark:text-dark-700 space-y-1">
           <div class="flex justify-between">
             <span>Kích thước:</span>
             <span>{{ formatFileSize(pendingTrack.file.size) }}</span>

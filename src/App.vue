@@ -12,7 +12,7 @@
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                 </svg>
               </div>
-              <h1 class="text-xl font-bold gradient-text hidden sm:block">SoundWave</h1>
+              <h1 class="text-xl font-bold gradient-text hidden sm:block">NamSound</h1>
             </div>
           </div>
           
@@ -46,7 +46,7 @@
             <!-- Supabase Status -->
             <div class="hidden sm:flex items-center space-x-2 text-xs">
               <div class="w-2 h-2 rounded-full" :class="isSupabaseConnected ? 'bg-green-500' : 'bg-yellow-500'"></div>
-              <span class="text-gray-600 dark:text-dark-600">
+              <span class="text-gray-700 dark:text-dark-700 font-medium">
                 {{ isSupabaseConnected ? 'Supabase' : 'Local' }}
               </span>
             </div>
@@ -72,26 +72,26 @@
       <!-- Loading State -->
       <div v-if="isLoading" class="flex items-center justify-center py-16">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-soundcloud-orange"></div>
-        <span class="ml-3 text-gray-600 dark:text-dark-600">Đang tải dữ liệu...</span>
+        <span class="ml-3 text-gray-700 dark:text-dark-700 font-medium">Đang tải dữ liệu...</span>
       </div>
 
       <!-- Stats Cards -->
       <div v-else class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div class="card text-center">
           <div class="text-2xl font-bold gradient-text">{{ tracks.length }}</div>
-          <div class="text-sm text-gray-500 dark:text-dark-500">Tổng số bài</div>
+          <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Tổng số bài</div>
         </div>
         <div class="card text-center">
           <div class="text-2xl font-bold gradient-text">{{ totalDuration }}</div>
-          <div class="text-sm text-gray-500 dark:text-dark-500">Tổng thời lượng</div>
+          <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Tổng thời lượng</div>
         </div>
         <div class="card text-center">
           <div class="text-2xl font-bold gradient-text">{{ favoriteTracks.length }}</div>
-          <div class="text-sm text-gray-500 dark:text-dark-500">Yêu thích</div>
+          <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Yêu thích</div>
         </div>
         <div class="card text-center">
           <div class="text-2xl font-bold gradient-text">{{ recentlyPlayed.length }}</div>
-          <div class="text-sm text-gray-500 dark:text-dark-500">Nghe gần đây</div>
+          <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Nghe gần đây</div>
         </div>
       </div>
 
@@ -154,12 +154,12 @@
                 <ExclamationTriangleIcon class="w-8 h-8 text-red-600 dark:text-red-400" />
               </div>
               <h2 class="text-xl font-semibold text-gray-900 dark:text-dark-900 mb-2">Xác nhận xóa bài hát</h2>
-              <p class="text-gray-600 dark:text-dark-600 mb-4">
+              <p class="text-gray-700 dark:text-dark-700 mb-4 font-medium">
                 Bạn đang muốn xóa bài hát: <br>
                 <span class="font-semibold text-soundcloud-orange">{{ trackToDelete?.title }}</span>
               </p>
               <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
-                <p class="text-sm text-yellow-800 dark:text-yellow-200">
+                <p class="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
                   <strong>Bảo mật:</strong> Để xóa bài hát này, bạn phải nhập Key-check là ngày tháng năm sinh của Phương Nam
                 </p>
               </div>
@@ -167,7 +167,7 @@
             
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-dark-700 mb-2">
+                <label class="block text-sm font-medium text-gray-800 dark:text-dark-800 mb-2">
                   Nhập Key-check (ddmmyyyy):
                 </label>
                 <input
@@ -179,7 +179,7 @@
                   @keyup.enter="confirmDelete"
                   @input="deleteKeyError = false"
                 />
-                <p v-if="deleteKeyError" class="text-red-600 dark:text-red-400 text-sm mt-1">
+                <p v-if="deleteKeyError" class="text-red-600 dark:text-red-400 text-sm mt-1 font-medium">
                   Key-check không đúng! Vui lòng thử lại.
                 </p>
               </div>
@@ -211,8 +211,8 @@
           <div class="w-24 h-24 bg-gradient-to-br from-soundcloud-orange/20 to-soundcloud-orange-light/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <MusicalNoteIcon class="w-12 h-12 text-soundcloud-orange" />
           </div>
-          <h3 class="text-xl font-medium text-gray-500 dark:text-dark-500 mb-2">Chưa có bài hát nào</h3>
-          <p class="text-gray-400 dark:text-dark-400 mb-6">Upload bài hát đầu tiên để bắt đầu!</p>
+          <h3 class="text-xl font-medium text-gray-600 dark:text-dark-600 mb-2">Chưa có bài hát nào</h3>
+          <p class="text-gray-500 dark:text-dark-500 mb-6">Upload bài hát đầu tiên để bắt đầu!</p>
           <button @click="toggleUploadModal" class="btn btn-primary">
             Upload Bài Hát
           </button>
@@ -295,8 +295,8 @@
               <XCircleIcon v-else class="w-6 h-6 text-red-500" />
             </div>
             <div class="flex-1">
-              <p class="text-sm font-medium">{{ notification.title }}</p>
-              <p class="text-xs text-gray-500 dark:text-dark-500">{{ notification.message }}</p>
+              <p class="text-sm font-medium text-gray-900 dark:text-dark-900">{{ notification.title }}</p>
+              <p class="text-xs text-gray-600 dark:text-dark-600">{{ notification.message }}</p>
             </div>
             <button @click="removeNotification(notification.id)" class="btn-icon">
               <XMarkIcon class="w-4 h-4" />
