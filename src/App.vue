@@ -153,8 +153,8 @@
               <div class="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
                 <ExclamationTriangleIcon class="w-8 h-8 text-red-600 dark:text-red-400" />
               </div>
-              <h2 class="text-xl font-semibold text-gray-900 dark:text-dark-900 mb-2">Xác nhận xóa bài hát</h2>
-              <p class="text-gray-700 dark:text-dark-700 mb-4 font-medium">
+              <h2 class="text-xl font-semibold text-white mb-2">Xác nhận xóa bài hát</h2>
+              <p class="text-white mb-4 font-medium">
                 Bạn đang muốn xóa bài hát: <br>
                 <span class="font-semibold text-soundcloud-orange">{{ trackToDelete?.title }}</span>
               </p>
@@ -167,19 +167,19 @@
             
             <div class="space-y-4">
               <div>
-                <label class="block text-sm font-medium text-gray-800 dark:text-dark-800 mb-2">
+                <label class="block text-sm font-medium text-white mb-2">
                   Nhập Key-check (ddmmyyyy):
                 </label>
                 <input
                   v-model="deleteKeyCheck"
                   type="text"
                   placeholder="Nhập ngày tháng năm sinh..."
-                  class="input-field"
+                  class="input-field text-white placeholder-white/70"
                   :class="{ 'border-red-500 focus:ring-red-500': deleteKeyError }"
                   @keyup.enter="confirmDelete"
                   @input="deleteKeyError = false"
                 />
-                <p v-if="deleteKeyError" class="text-red-600 dark:text-red-400 text-sm mt-1 font-medium">
+                <p v-if="deleteKeyError" class="text-red-400 text-sm mt-1 font-medium">
                   Key-check không đúng! Vui lòng thử lại.
                 </p>
               </div>
