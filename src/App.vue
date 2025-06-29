@@ -615,8 +615,8 @@ const stopPlayTracking = async (trackId: string) => {
           
           console.log(`UI updated: Track ${trackId} now has ${result.newPlayCount} plays`)
           
-          // Show notification
-          showNotification('success', 'View đã được cộng!', `+1 view cho "${tracks.value[trackIndex].title}"`)
+          // REMOVED: No more notification for view count
+          // showNotification('success', 'View đã được cộng!', `+1 view cho "${tracks.value[trackIndex].title}"`)
         }
         
         // Update total users count
