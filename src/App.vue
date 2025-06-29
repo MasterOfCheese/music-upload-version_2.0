@@ -584,7 +584,6 @@ const stopPlayTracking = async (trackId: string) => {
       // Update total users count
       totalUsers.value = await getTotalUniqueUsers()
       
-      showNotification('success', 'Đã tính view', 'Cảm ơn bạn đã nghe nhạc!')
     } catch (error) {
       console.error('Error recording play:', error)
     }
