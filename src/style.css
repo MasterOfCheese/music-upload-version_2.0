@@ -49,13 +49,11 @@
   .soundcloud-waveform {
     @apply relative rounded-lg overflow-hidden transition-all duration-300;
     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border: 1px solid rgba(0, 0, 0, 0.1);
     width: 100%;
   }
 
   .dark .soundcloud-waveform {
     background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
-    border: 1px solid rgba(255, 255, 255, 0.1);
   }
   
   .upload-zone {
@@ -72,6 +70,25 @@
 
   .search-input {
     @apply w-full pl-12 pr-4 py-3 bg-white/80 dark:bg-dark-100/80 border border-gray-300 dark:border-dark-300 rounded-full focus:outline-none focus:ring-2 focus:ring-soundcloud-orange focus:border-transparent transition-all duration-200 backdrop-blur-sm;
+  }
+
+  /* Mobile search input - centered placeholder */
+  @media (max-width: 640px) {
+    .search-input {
+      @apply text-center pl-4;
+    }
+    
+    .search-input::placeholder {
+      @apply text-center;
+    }
+    
+    .search-input:focus {
+      @apply text-left pl-12;
+    }
+    
+    .search-input:focus::placeholder {
+      @apply text-left;
+    }
   }
 
   .floating-player {
