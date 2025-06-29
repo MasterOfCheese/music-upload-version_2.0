@@ -916,4 +916,3 @@ watch(tracks, () => {
   saveTracksToLocalStorage()
 }, { deep: true })
 </script>
-</template>
