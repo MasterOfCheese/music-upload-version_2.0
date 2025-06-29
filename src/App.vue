@@ -48,9 +48,6 @@
               <button @click="debugCurrentTrack" class="btn btn-ghost text-xs">
                 Debug
               </button>
-              <button @click="refreshAllPlayCounts" class="btn btn-ghost text-xs">
-                Refresh
-              </button>
             </div>
             
             <!-- Supabase Status -->
@@ -355,7 +352,6 @@ import {
   recordTrackPlay,
   getTotalUniqueUsers,
   debugTrackPlays,
-  forceRefreshAllPlayCounts,
   simulatePlayFromDifferentUser,
   getTrackPlayCount
 } from './lib/supabase'
@@ -634,24 +630,6 @@ const debugCurrentTrack = async () => {
   console.log('Debug info:', debugInfo)
   
   showNotification('success', 'Debug hoàn thành', `Check console để xem chi tiết track ${currentTrack.value.title}`)
-}
-
-const refreshAllPlayCounts = async () => {
-  if (!isSupabaseConnected.value) {
-    showNotification('warning', 'Refresh không khả dụng', 'Cần kết nối Supabase')
-    return
-  }
-  
-  showNotification('success', 'Đang refresh...', 'Đang cập nhật tất cả play counts')
-  
-  const success = await forceRefreshAllPlayCounts()
-  if (success) {
-    // Reload tracks to get updated counts
-    await loadTracks()
-    showNotification('success', 'Refresh thành công', 'Đã cập nhật tất cả play counts')
-  } else {
-    showNotification('error', 'Refresh thất bại', 'Không thể cập nhật play counts')
-  }
 }
 
 const simulateNewUser = async () => {
