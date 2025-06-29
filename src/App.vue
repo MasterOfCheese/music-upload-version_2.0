@@ -70,9 +70,17 @@
 
       <!-- Stats Cards -->
       <div v-else class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="card text-center">
+        <!-- Clickable Total Tracks Card -->
+        <div 
+          class="card text-center cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:scale-105 group"
+          @click="showAllTracks"
+          :class="{ 'ring-2 ring-soundcloud-orange': activeFilter === 'all' }"
+        >
           <div class="text-2xl font-bold gradient-text">{{ tracks.length }}</div>
           <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Tổng số bài</div>
+          <div class="text-xs text-soundcloud-orange mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            Click để xem tất cả
+          </div>
         </div>
         <div class="card text-center">
           <div class="text-2xl font-bold gradient-text">{{ totalUsers }}</div>
@@ -80,7 +88,7 @@
         </div>
         <!-- Clickable Favorites Card -->
         <div 
-          class="card text-center cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+          class="card text-center cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:scale-105 group"
           @click="showFavorites"
           :class="{ 'ring-2 ring-soundcloud-orange': activeFilter === 'favorites' }"
         >
@@ -92,7 +100,7 @@
         </div>
         <!-- Clickable Trending Card -->
         <div 
-          class="card text-center cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+          class="card text-center cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:scale-105 group"
           @click="showTrending"
           :class="{ 'ring-2 ring-soundcloud-orange': activeFilter === 'trending' }"
         >
@@ -108,10 +116,11 @@
       <div v-if="activeFilter" class="mb-6 flex items-center justify-between">
         <div class="flex items-center space-x-3">
           <div class="flex items-center space-x-2">
-            <HeartIcon v-if="activeFilter === 'favorites'" class="w-5 h-5 text-red-500" />
+            <MusicalNoteIcon v-if="activeFilter === 'all'" class="w-5 h-5 text-soundcloud-orange" />
+            <HeartIcon v-else-if="activeFilter === 'favorites'" class="w-5 h-5 text-red-500" />
             <FireIcon v-else-if="activeFilter === 'trending'" class="w-5 h-5 text-orange-500" />
             <span class="text-lg font-semibold text-gray-900 dark:text-dark-900">
-              {{ activeFilter === 'favorites' ? 'Bài hát yêu thích' : 'Bài hát trending' }}
+              {{ getFilterTitle() }}
             </span>
             <span class="text-sm text-gray-500 dark:text-dark-500">
               ({{ filteredTracks.length }} bài)
@@ -250,7 +259,7 @@
       <div v-if="!isLoading">
         <div v-if="filteredTracks.length === 0" class="text-center py-16">
           <div class="w-24 h-24 bg-gradient-to-br from-soundcloud-orange/20 to-soundcloud-orange-light/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <MusicalNoteIcon v-if="!activeFilter" class="w-12 h-12 text-soundcloud-orange" />
+            <MusicalNoteIcon v-if="!activeFilter || activeFilter === 'all'" class="w-12 h-12 text-soundcloud-orange" />
             <HeartIcon v-else-if="activeFilter === 'favorites'" class="w-12 h-12 text-red-500" />
             <FireIcon v-else-if="activeFilter === 'trending'" class="w-12 h-12 text-orange-500" />
           </div>
@@ -435,8 +444,8 @@ const deleteKeyCheck = ref('')
 const deleteKeyError = ref(false)
 const isDeleting = ref(false)
 
-// Filter state
-const activeFilter = ref<'favorites' | 'trending' | null>(null)
+// Filter state - Updated to include 'all'
+const activeFilter = ref<'all' | 'favorites' | 'trending' | null>(null)
 
 // Check if mobile
 const checkMobile = () => {
@@ -456,7 +465,12 @@ const handleSearchBlur = () => {
   hideSearchSuggestions()
 }
 
-// Filter methods
+// Filter methods - Updated
+const showAllTracks = () => {
+  activeFilter.value = 'all'
+  searchQuery.value = '' // Clear search when filtering
+}
+
 const showFavorites = () => {
   activeFilter.value = 'favorites'
   searchQuery.value = '' // Clear search when filtering
@@ -471,9 +485,25 @@ const clearFilter = () => {
   activeFilter.value = null
 }
 
-// Empty state helpers
+// Helper functions for filter display
+const getFilterTitle = () => {
+  switch (activeFilter.value) {
+    case 'all':
+      return 'Tất cả bài hát'
+    case 'favorites':
+      return 'Bài hát yêu thích'
+    case 'trending':
+      return 'Bài hát trending'
+    default:
+      return ''
+  }
+}
+
+// Empty state helpers - Updated
 const getEmptyStateTitle = () => {
-  if (activeFilter.value === 'favorites') {
+  if (activeFilter.value === 'all') {
+    return 'Chưa có bài hát nào'
+  } else if (activeFilter.value === 'favorites') {
     return 'Chưa có bài hát yêu thích'
   } else if (activeFilter.value === 'trending') {
     return 'Chưa có bài hát trending'
@@ -484,7 +514,9 @@ const getEmptyStateTitle = () => {
 }
 
 const getEmptyStateMessage = () => {
-  if (activeFilter.value === 'favorites') {
+  if (activeFilter.value === 'all') {
+    return 'Upload bài hát đầu tiên để bắt đầu!'
+  } else if (activeFilter.value === 'favorites') {
     return 'Hãy thêm bài hát vào danh sách yêu thích bằng cách nhấn vào icon trái tim!'
   } else if (activeFilter.value === 'trending') {
     return 'Chưa có bài hát nào có đủ lượt nghe để trở thành trending.'
@@ -494,17 +526,26 @@ const getEmptyStateMessage = () => {
   return 'Upload bài hát đầu tiên để bắt đầu!'
 }
 
-// Computed
+// Computed - Updated filtering logic
 const filteredTracks = computed(() => {
   let filtered = tracks.value
   
   // Apply active filter first
-  if (activeFilter.value === 'favorites') {
+  if (activeFilter.value === 'all') {
+    // Show all tracks (no filtering)
+    filtered = tracks.value
+  } else if (activeFilter.value === 'favorites') {
     filtered = filtered.filter(track => favoriteTracks.value.includes(track.id))
   } else if (activeFilter.value === 'trending') {
-    // Show tracks with play count > 0, sorted by play count
-    filtered = filtered.filter(track => (track.playCount || 0) > 0)
-      .sort((a, b) => (b.playCount || 0) - (a.playCount || 0))
+    // FIXED: Show only THE TOP trending track (not all tracks with plays > 0)
+    const tracksWithPlays = filtered.filter(track => (track.playCount || 0) > 0)
+    if (tracksWithPlays.length > 0) {
+      // Sort by play count and take only the top 1
+      const topTrack = tracksWithPlays.sort((a, b) => (b.playCount || 0) - (a.playCount || 0))[0]
+      filtered = [topTrack] // Only show the single top track
+    } else {
+      filtered = [] // No tracks with plays
+    }
   }
   
   // Then apply search filter
