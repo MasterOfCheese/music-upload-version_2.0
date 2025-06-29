@@ -357,7 +357,7 @@ import {
   debugTrackPlays,
   forceRefreshAllPlayCounts,
   simulatePlayFromDifferentUser,
-  updateTrackPlayCount
+  getTrackPlayCount
 } from './lib/supabase'
 import type { Track, Notification } from './types/Track'
 
@@ -592,45 +592,34 @@ const stopPlayTracking = async (trackId: string) => {
   // Only record if played for at least 10 seconds
   if (playDuration >= 10) {
     try {
-      await recordTrackPlay(
+      const result = await recordTrackPlay(
         trackId, 
         userFingerprint.value.ip, 
         userFingerprint.value.userAgent, 
         playDuration
       )
       
-      // Refresh track data to get updated play count
-      await refreshSingleTrackPlayCount(trackId)
-      
-      // Update total users count
-      totalUsers.value = await getTotalUniqueUsers()
+      if (result) {
+        // Update the track in our local state immediately
+        const trackIndex = tracks.value.findIndex(t => t.id === trackId)
+        if (trackIndex !== -1) {
+          tracks.value[trackIndex].playCount = result.newPlayCount
+          // Force reactivity
+          tracks.value = [...tracks.value]
+          
+          console.log(`UI updated: Track ${trackId} now has ${result.newPlayCount} plays`)
+          
+          // Show notification
+          showNotification('success', 'View đã được cộng!', `+1 view cho "${tracks.value[trackIndex].title}"`)
+        }
+        
+        // Update total users count
+        totalUsers.value = await getTotalUniqueUsers()
+      }
       
     } catch (error) {
       console.error('Error recording play:', error)
     }
-  }
-}
-
-const refreshSingleTrackPlayCount = async (trackId: string) => {
-  if (!isSupabaseConnected.value) return
-  
-  try {
-    // Reload tracks to get updated play counts
-    const dbTracks = await getTracksFromDatabase()
-    const updatedTrack = dbTracks.find(t => t.id === trackId)
-    
-    if (updatedTrack) {
-      const trackIndex = tracks.value.findIndex(t => t.id === trackId)
-      if (trackIndex !== -1) {
-        tracks.value[trackIndex].playCount = updatedTrack.play_count || 0
-        console.log(`Updated play count for track ${trackId}: ${updatedTrack.play_count}`)
-        
-        // Force reactivity update
-        tracks.value = [...tracks.value]
-      }
-    }
-  } catch (error) {
-    console.error('Error refreshing track play count:', error)
   }
 }
 
@@ -672,13 +661,21 @@ const simulateNewUser = async () => {
   }
   
   try {
-    await simulatePlayFromDifferentUser(currentTrack.value.id)
+    const result = await simulatePlayFromDifferentUser(currentTrack.value.id)
     
-    // Wait a bit then refresh
-    setTimeout(async () => {
-      await refreshSingleTrackPlayCount(currentTrack.value!.id)
-      showNotification('success', 'Đã thêm 1 view', `Bài hát ${currentTrack.value!.title} đã được cộng view`)
-    }, 2000)
+    if (result) {
+      // Update UI immediately
+      const trackIndex = tracks.value.findIndex(t => t.id === currentTrack.value!.id)
+      if (trackIndex !== -1) {
+        tracks.value[trackIndex].playCount = result.newPlayCount
+        tracks.value = [...tracks.value] // Force reactivity
+        
+        showNotification('success', 'Đã thêm 1 view!', `Bài hát "${currentTrack.value.title}" có ${result.newPlayCount} views`)
+      }
+      
+      // Update total users
+      totalUsers.value = await getTotalUniqueUsers()
+    }
     
   } catch (error) {
     console.error('Error simulating new user:', error)
