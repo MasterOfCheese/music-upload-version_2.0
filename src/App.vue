@@ -42,26 +42,11 @@
           </div>
           
           <!-- Actions -->
-          <div class="flex items-center space-x-3 sm:space-x-4">
-            <!-- Debug Button (only show if Supabase connected) -->
-            <div v-if="isSupabaseConnected" class="hidden lg:flex items-center space-x-2">
-              <Button variant="ghost" size="sm" @click="debugCurrentTrack">
-                Debug
-              </Button>
-            </div>
-            
-            <!-- Supabase Status -->
-            <div class="hidden sm:flex items-center space-x-2 text-xs">
-              <div class="w-2 h-2 rounded-full" :class="isSupabaseConnected ? 'bg-green-500' : 'bg-yellow-500'"></div>
-              <span class="text-gray-700 dark:text-dark-700 font-medium">
-                {{ isSupabaseConnected ? 'Supabase' : 'Local' }}
-              </span>
-            </div>
-            
-            <!-- Theme Toggle - Made larger -->
-            <Button variant="icon" @click="toggleTheme" title="Chuyển đổi theme" class="w-12 h-12">
-              <SunIcon v-if="isDarkMode" class="w-6 h-6" />
-              <MoonIcon v-else class="w-6 h-6" />
+          <div class="flex items-center space-x-4">
+            <!-- Theme Toggle - Made 2x larger -->
+            <Button variant="icon" @click="toggleTheme" title="Chuyển đổi theme" class="w-16 h-16">
+              <SunIcon v-if="isDarkMode" class="w-8 h-8" />
+              <MoonIcon v-else class="w-8 h-8" />
             </Button>
             
             <!-- Upload Button -->
@@ -105,7 +90,7 @@
       <!-- Controls -->
       <div v-if="!isLoading" class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div class="flex items-center space-x-4">
-          <!-- Shuffle Button - Fixed styling -->
+          <!-- Shuffle Button - Fixed styling with flex display -->
           <Button 
             variant="ghost"
             @click="toggleShuffle" 
@@ -126,23 +111,23 @@
           </select>
         </div>
         
-        <div class="flex items-center space-x-3">
-          <!-- View Mode Buttons - Made larger -->
+        <div class="flex items-center space-x-4">
+          <!-- View Mode Buttons - Made 2x larger -->
           <Button
             variant="icon"
             @click="viewMode = 'grid'" 
             :class="{ 'text-soundcloud-orange': viewMode === 'grid' }"
-            class="w-12 h-12"
+            class="w-16 h-16"
           >
-            <Squares2X2Icon class="w-6 h-6" />
+            <Squares2X2Icon class="w-8 h-8" />
           </Button>
           <Button
             variant="icon"
             @click="viewMode = 'list'" 
             :class="{ 'text-soundcloud-orange': viewMode === 'list' }"
-            class="w-12 h-12"
+            class="w-16 h-16"
           >
-            <ListBulletIcon class="w-6 h-6" />
+            <ListBulletIcon class="w-8 h-8" />
           </Button>
         </div>
       </div>
@@ -334,8 +319,7 @@ import {
   deleteTrackFromDatabase, 
   deleteAudioFile, 
   getAudioFileUrl,
-  getTotalUniqueUsers,
-  debugTrackPlays
+  getTotalUniqueUsers
 } from './lib/supabase'
 import type { Track } from './types/Track'
 
@@ -658,18 +642,6 @@ const updateTrackPlayCount = (trackId: string, newCount: number) => {
     tracks.value = [...tracks.value]
     showNotification('success', 'View đã được cộng!', `+1 view cho "${tracks.value[trackIndex].title}"`)
   }
-}
-
-const debugCurrentTrack = async () => {
-  if (!currentTrack.value || !isSupabaseConnected.value) {
-    showNotification('warning', 'Debug không khả dụng', 'Cần có bài hát đang phát và kết nối Supabase')
-    return
-  }
-  
-  const debugInfo = await debugTrackPlays(currentTrack.value.id)
-  console.log('Debug info:', debugInfo)
-  
-  showNotification('success', 'Debug hoàn thành', `Check console để xem chi tiết track ${currentTrack.value.title}`)
 }
 
 const toggleTheme = () => {
