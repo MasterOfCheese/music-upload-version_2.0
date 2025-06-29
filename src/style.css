@@ -19,7 +19,7 @@
 
 @layer components {
   .btn {
-    @apply px-4 py-2 rounded-xl font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 transform hover:scale-105 active:scale-95;
+    @apply px-4 py-2 rounded-xl font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
   }
   
   .btn-primary {
@@ -35,7 +35,7 @@
   }
   
   .btn-icon {
-    @apply w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-200 transform hover:scale-110;
+    @apply flex items-center justify-center rounded-full transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-200 transform hover:scale-110;
   }
   
   .card {
@@ -46,9 +46,16 @@
     @apply bg-white/10 dark:bg-dark-100/10 backdrop-blur-md rounded-2xl border border-white/20 dark:border-dark-200/20 shadow-glass;
   }
   
-  .waveform-container {
-    @apply relative bg-gradient-to-r from-gray-100 to-gray-200 dark:from-dark-200 dark:to-dark-300 rounded-xl overflow-hidden transition-all duration-300 min-h-[4rem] lg:min-h-[4rem];
-    padding: 0.5rem 0;
+  .soundcloud-waveform {
+    @apply relative rounded-lg overflow-hidden transition-all duration-300;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    width: 100%;
+  }
+
+  .dark .soundcloud-waveform {
+    background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
   
   .upload-zone {

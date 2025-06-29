@@ -42,7 +42,7 @@
           </div>
           
           <!-- Actions -->
-          <div class="flex items-center space-x-2 sm:space-x-4">
+          <div class="flex items-center space-x-3 sm:space-x-4">
             <!-- Debug Button (only show if Supabase connected) -->
             <div v-if="isSupabaseConnected" class="hidden lg:flex items-center space-x-2">
               <Button variant="ghost" size="sm" @click="debugCurrentTrack">
@@ -58,10 +58,10 @@
               </span>
             </div>
             
-            <!-- Theme Toggle -->
-            <Button variant="icon" @click="toggleTheme" title="Chuyển đổi theme">
-              <SunIcon v-if="isDarkMode" class="w-5 h-5" />
-              <MoonIcon v-else class="w-5 h-5" />
+            <!-- Theme Toggle - Made larger -->
+            <Button variant="icon" @click="toggleTheme" title="Chuyển đổi theme" class="w-12 h-12">
+              <SunIcon v-if="isDarkMode" class="w-6 h-6" />
+              <MoonIcon v-else class="w-6 h-6" />
             </Button>
             
             <!-- Upload Button -->
@@ -105,13 +105,15 @@
       <!-- Controls -->
       <div v-if="!isLoading" class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div class="flex items-center space-x-4">
+          <!-- Shuffle Button - Fixed styling -->
           <Button 
             variant="ghost"
             @click="toggleShuffle" 
             :class="{ 'text-soundcloud-orange': isShuffled }"
+            class="flex items-center space-x-2"
           >
-            <ArrowsRightLeftIcon class="w-5 h-5 mr-2" />
-            Shuffle
+            <ArrowsRightLeftIcon class="w-5 h-5" />
+            <span>Shuffle</span>
           </Button>
           
           <select v-model="sortBy" class="input-field">
@@ -124,27 +126,23 @@
           </select>
         </div>
         
-        <div class="flex items-center space-x-2">
-          <!-- Test buttons for debugging -->
-          <div v-if="isSupabaseConnected && currentTrack" class="hidden lg:flex items-center space-x-2 mr-4">
-            <Button variant="ghost" size="sm" @click="simulateNewUser">
-              +1 View
-            </Button>
-          </div>
-          
+        <div class="flex items-center space-x-3">
+          <!-- View Mode Buttons - Made larger -->
           <Button
             variant="icon"
             @click="viewMode = 'grid'" 
             :class="{ 'text-soundcloud-orange': viewMode === 'grid' }"
+            class="w-12 h-12"
           >
-            <Squares2X2Icon class="w-5 h-5" />
+            <Squares2X2Icon class="w-6 h-6" />
           </Button>
           <Button
             variant="icon"
             @click="viewMode = 'list'" 
             :class="{ 'text-soundcloud-orange': viewMode === 'list' }"
+            class="w-12 h-12"
           >
-            <ListBulletIcon class="w-5 h-5" />
+            <ListBulletIcon class="w-6 h-6" />
           </Button>
         </div>
       </div>
@@ -337,8 +335,7 @@ import {
   deleteAudioFile, 
   getAudioFileUrl,
   getTotalUniqueUsers,
-  debugTrackPlays,
-  simulatePlayFromDifferentUser
+  debugTrackPlays
 } from './lib/supabase'
 import type { Track } from './types/Track'
 
@@ -673,26 +670,6 @@ const debugCurrentTrack = async () => {
   console.log('Debug info:', debugInfo)
   
   showNotification('success', 'Debug hoàn thành', `Check console để xem chi tiết track ${currentTrack.value.title}`)
-}
-
-const simulateNewUser = async () => {
-  if (!currentTrack.value || !isSupabaseConnected.value) {
-    showNotification('warning', 'Simulate không khả dụng', 'Cần có bài hát đang phát và kết nối Supabase')
-    return
-  }
-  
-  try {
-    const result = await simulatePlayFromDifferentUser(currentTrack.value.id)
-    
-    if (result) {
-      updateTrackPlayCount(currentTrack.value.id, result.newPlayCount)
-      totalUsers.value = await getTotalUniqueUsers()
-    }
-    
-  } catch (error) {
-    console.error('Error simulating new user:', error)
-    showNotification('error', 'Simulate thất bại', 'Không thể thêm view')
-  }
 }
 
 const toggleTheme = () => {

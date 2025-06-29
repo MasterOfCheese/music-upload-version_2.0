@@ -8,15 +8,16 @@
     @mouseleave="showHover = false"
   >
     <!-- Background bars (unplayed) -->
-    <div class="flex items-end justify-start h-full space-x-0.5 py-1">
+    <div class="flex items-end justify-start h-full px-1 py-1" style="width: 90%;">
       <div
-        v-for="(amplitude, index) in waveformData"
+        v-for="(amplitude, index) in detailedWaveformData"
         :key="`bg-${index}`"
         class="waveform-bar-bg flex-shrink-0 transition-all duration-100"
         :style="{ 
-          height: `${Math.max(amplitude * 85, mini ? 8 : 12)}%`,
-          minHeight: mini ? '2px' : '3px',
-          width: mini ? '2px' : '3px'
+          height: `${Math.max(amplitude * 90, mini ? 10 : 15)}%`,
+          minHeight: mini ? '3px' : '4px',
+          width: mini ? '1.5px' : '2px',
+          marginRight: '1px'
         }"
       />
     </div>
@@ -25,17 +26,18 @@
     <div
       v-if="isCurrent && progress > 0"
       class="absolute top-0 left-0 h-full overflow-hidden"
-      :style="{ width: `${progress}%` }"
+      :style="{ width: `${Math.min(progress, 90)}%` }"
     >
-      <div class="flex items-end justify-start h-full space-x-0.5 py-1">
+      <div class="flex items-end justify-start h-full px-1 py-1">
         <div
-          v-for="(amplitude, index) in waveformData"
+          v-for="(amplitude, index) in detailedWaveformData"
           :key="`progress-${index}`"
           class="waveform-bar-progress flex-shrink-0 transition-all duration-100"
           :style="{ 
-            height: `${Math.max(amplitude * 85, mini ? 8 : 12)}%`,
-            minHeight: mini ? '2px' : '3px',
-            width: mini ? '2px' : '3px'
+            height: `${Math.max(amplitude * 90, mini ? 10 : 15)}%`,
+            minHeight: mini ? '3px' : '4px',
+            width: mini ? '1.5px' : '2px',
+            marginRight: '1px'
           }"
         />
       </div>
@@ -45,15 +47,20 @@
     <div
       v-if="showHover && !mini"
       class="absolute top-0 h-full w-0.5 bg-white/80 pointer-events-none rounded-full shadow-lg"
-      :style="{ left: `${hoverPosition}%` }"
+      :style="{ left: `${Math.min(hoverPosition, 90)}%` }"
     />
     
     <!-- Current time indicator -->
     <div
       v-if="isCurrent && isPlaying"
       class="absolute top-0 h-full w-0.5 bg-white pointer-events-none rounded-full shadow-lg animate-pulse"
-      :style="{ left: `${progress}%` }"
+      :style="{ left: `${Math.min(progress, 90)}%` }"
     />
+    
+    <!-- Time display overlay -->
+    <div v-if="!mini" class="absolute bottom-1 right-2 text-xs text-gray-500 dark:text-dark-500 font-mono">
+      {{ formatTime(duration) }}
+    </div>
   </div>
 </template>
 
@@ -66,6 +73,7 @@ interface Props {
   progress: number
   mini?: boolean
   isPlaying?: boolean
+  duration?: number
 }
 
 interface Emits {
@@ -74,7 +82,8 @@ interface Emits {
 
 const props = withDefaults(defineProps<Props>(), {
   mini: false,
-  isPlaying: false
+  isPlaying: false,
+  duration: 0
 })
 
 const emit = defineEmits<Emits>()
@@ -83,12 +92,34 @@ const waveformContainer = ref<HTMLElement>()
 const showHover = ref(false)
 const hoverPosition = ref(0)
 
+// Generate more detailed waveform data (like SoundCloud)
+const detailedWaveformData = computed(() => {
+  const originalData = props.waveformData
+  const targetLength = props.mini ? 150 : 300 // More bars for detail
+  const detailedData: number[] = []
+  
+  for (let i = 0; i < targetLength; i++) {
+    const originalIndex = Math.floor((i / targetLength) * originalData.length)
+    const baseAmplitude = originalData[originalIndex] || 0.1
+    
+    // Add some variation to make it look more realistic
+    const variation = (Math.random() - 0.5) * 0.3
+    const amplitude = Math.max(0.05, Math.min(1, baseAmplitude + variation))
+    
+    detailedData.push(amplitude)
+  }
+  
+  return detailedData
+})
+
 const handleClick = (event: MouseEvent) => {
   if (!waveformContainer.value) return
   
   const rect = waveformContainer.value.getBoundingClientRect()
   const percentage = ((event.clientX - rect.left) / rect.width) * 100
-  emit('seek', Math.max(0, Math.min(100, percentage)))
+  // Limit to 90% since waveform only spans 90% width
+  const adjustedPercentage = Math.min(percentage, 90)
+  emit('seek', Math.max(0, adjustedPercentage))
 }
 
 const handleMouseMove = (event: MouseEvent) => {
@@ -98,34 +129,53 @@ const handleMouseMove = (event: MouseEvent) => {
   hoverPosition.value = ((event.clientX - rect.left) / rect.width) * 100
   showHover.value = true
 }
+
+const formatTime = (seconds: number): string => {
+  if (!seconds || isNaN(seconds)) return '0:00'
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
 </script>
 
 <style scoped>
 .soundcloud-waveform {
-  @apply relative bg-gradient-to-r from-gray-200 to-gray-300 dark:from-dark-300 dark:to-dark-400 rounded-lg overflow-hidden;
-  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  @apply relative rounded-lg overflow-hidden;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
 .dark .soundcloud-waveform {
-  background: linear-gradient(135deg, #374151 0%, #4b5563 100%);
+  background: linear-gradient(135deg, #2d3748 0%, #4a5568 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .waveform-bar-bg {
-  @apply bg-gray-400/60 dark:bg-dark-500/60 rounded-sm;
-  background: rgba(156, 163, 175, 0.6);
+  @apply rounded-sm;
+  background: rgba(156, 163, 175, 0.4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .dark .waveform-bar-bg {
-  background: rgba(107, 114, 128, 0.6);
+  background: rgba(107, 114, 128, 0.4);
 }
 
 .waveform-bar-progress {
-  @apply bg-gradient-to-t from-soundcloud-orange to-soundcloud-orange-light rounded-sm;
+  @apply rounded-sm;
   background: linear-gradient(to top, #FF5500, #FF7733);
-  box-shadow: 0 0 4px rgba(255, 85, 0, 0.3);
+  box-shadow: 0 0 4px rgba(255, 85, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .waveform-bar-progress:hover {
   filter: brightness(1.1);
+}
+
+/* Add subtle animation for playing state */
+.soundcloud-waveform:hover .waveform-bar-bg {
+  background: rgba(156, 163, 175, 0.6);
+}
+
+.dark .soundcloud-waveform:hover .waveform-bar-bg {
+  background: rgba(107, 114, 128, 0.6);
 }
 </style>
