@@ -135,14 +135,10 @@ npm run build
 4. Push to branch (`git push origin feature/AmazingFeature`)
 5. Tạo Pull Request
 
-## 📄 License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
 ## 📞 Liên hệ
 
-- GitHub: [Your GitHub]
-- Email: [Your Email]
+- GitHub: [https://github.com/MasterOfCheese]
+- Email: [pnam24823@gmail.com]
 
 ---
 
