@@ -17,7 +17,7 @@
         <InformationCircleIcon class="w-5 h-5 text-blue-600 dark:text-blue-400" />
         <div class="text-sm text-blue-800 dark:text-blue-200">
           <p class="font-medium">Dung lượng tải bài hát là CÓ HẠN</p>
-          <p class="font-demium"> Tối đa 1000MB</p>
+          <p class="font-bold"> Tối đa 1000MB</p>
           <p class="text-xs mt-1 font-medium">
             <strong>Lưu ý:</strong> Cấm tuyệt đối ae up nhạc quá dài, sập server không có cái mà dùng:)))
           </p>
