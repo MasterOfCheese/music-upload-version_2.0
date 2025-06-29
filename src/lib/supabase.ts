@@ -180,7 +180,7 @@ export const recordTrackPlay = async (trackId: string, userIp: string, userAgent
     // Only record if played for at least 10 seconds
     if (playDuration < 10) {
       console.log(`Play duration ${playDuration}s is less than 10s, not recording`)
-      return
+      return null
     }
 
     console.log(`Recording play for track ${trackId}, duration: ${playDuration}s`)
@@ -203,12 +203,12 @@ export const recordTrackPlay = async (trackId: string, userIp: string, userAgent
     
     console.log('Track play recorded successfully:', data[0])
     
-    // Wait a bit for trigger to process then get updated count
-    await new Promise(resolve => setTimeout(resolve, 500))
+    // Wait longer for trigger to process
+    await new Promise(resolve => setTimeout(resolve, 1000))
     
-    // Get the updated play count
-    const updatedCount = await getTrackPlayCount(trackId)
-    console.log(`Updated play count for track ${trackId}: ${updatedCount}`)
+    // Manually update the play count to ensure consistency
+    const updatedCount = await updateTrackPlayCount(trackId)
+    console.log(`Manually updated play count for track ${trackId}: ${updatedCount}`)
     
     return { playRecord: data[0], newPlayCount: updatedCount }
   } catch (error) {
@@ -220,7 +220,7 @@ export const recordTrackPlay = async (trackId: string, userIp: string, userAgent
 // Manual function to update play count (counts ALL plays ≥10s)
 export const updateTrackPlayCount = async (trackId: string) => {
   try {
-    // Get total play count for this track (ALL plays ≥10s, not unique)
+    // Get total play count for this track (ALL plays ≥10s)
     const { data: playData, error: playError } = await supabase
       .from('track_plays')
       .select('id')
@@ -262,6 +262,20 @@ export const updateTrackPlayCount = async (trackId: string) => {
 
 export const getTrackPlayCount = async (trackId: string) => {
   try {
+    // Get from database first (most accurate)
+    const { data: trackData, error: trackError } = await supabase
+      .from('tracks')
+      .select('play_count')
+      .eq('id', trackId)
+      .single()
+
+    if (trackError) {
+      console.error('Error getting track from database:', trackError)
+    } else if (trackData?.play_count !== null && trackData?.play_count !== undefined) {
+      return trackData.play_count
+    }
+
+    // Fallback: count from track_plays table
     const { data, error } = await supabase
       .from('track_plays')
       .select('id')
@@ -270,7 +284,6 @@ export const getTrackPlayCount = async (trackId: string) => {
 
     if (error) throw error
     
-    // Count ALL plays (not unique IPs)
     return data?.length || 0
   } catch (error) {
     console.error('Error getting track play count:', error)
@@ -293,6 +306,66 @@ export const getTotalUniqueUsers = async () => {
   } catch (error) {
     console.error('Error getting total unique users:', error)
     return 0
+  }
+}
+
+// Function to fix database trigger
+export const fixDatabaseTrigger = async () => {
+  try {
+    console.log('Fixing database trigger...')
+    
+    // Execute SQL to recreate the trigger function
+    const { error } = await supabase.rpc('exec_sql', {
+      sql: `
+        -- Drop existing trigger and function
+        DROP TRIGGER IF EXISTS trigger_update_play_count ON track_plays;
+        DROP FUNCTION IF EXISTS update_track_play_count();
+
+        -- Create new function that counts ALL plays (not unique IPs)
+        CREATE OR REPLACE FUNCTION update_track_play_count()
+        RETURNS TRIGGER AS $$
+        DECLARE
+          total_play_count INTEGER;
+        BEGIN
+          -- Count ALL plays that are 10+ seconds (not unique IPs)
+          SELECT COUNT(*) INTO total_play_count
+          FROM track_plays 
+          WHERE track_id = NEW.track_id 
+          AND play_duration >= 10;
+          
+          -- Update the tracks table with total play count
+          UPDATE tracks 
+          SET 
+            play_count = total_play_count,
+            last_played_at = NEW.played_at,
+            updated_at = now()
+          WHERE id = NEW.track_id;
+          
+          -- Log the update for debugging
+          RAISE NOTICE 'Updated play count for track % to % (total plays)', NEW.track_id, total_play_count;
+          
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+
+        -- Create the trigger
+        CREATE TRIGGER trigger_update_play_count
+          AFTER INSERT ON track_plays
+          FOR EACH ROW
+          EXECUTE FUNCTION update_track_play_count();
+      `
+    })
+
+    if (error) {
+      console.error('Error fixing trigger:', error)
+      return false
+    }
+
+    console.log('Database trigger fixed successfully!')
+    return true
+  } catch (error) {
+    console.error('Error fixing database trigger:', error)
+    return false
   }
 }
 
@@ -398,9 +471,9 @@ export const simulatePlayFromDifferentUser = async (trackId: string) => {
     
     console.log('Simulated play recorded:', data[0])
     
-    // Wait for trigger and get updated count
+    // Wait for trigger and manually update count
     await new Promise(resolve => setTimeout(resolve, 500))
-    const newCount = await getTrackPlayCount(trackId)
+    const newCount = await updateTrackPlayCount(trackId)
     
     return { playRecord: data[0], newPlayCount: newCount }
   } catch (error) {
