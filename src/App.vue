@@ -78,14 +78,53 @@
           <div class="text-2xl font-bold gradient-text">{{ totalUsers }}</div>
           <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Tổng số User</div>
         </div>
-        <div class="card text-center">
+        <!-- Clickable Favorites Card -->
+        <div 
+          class="card text-center cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+          @click="showFavorites"
+          :class="{ 'ring-2 ring-soundcloud-orange': activeFilter === 'favorites' }"
+        >
           <div class="text-2xl font-bold gradient-text">{{ favoriteTracks.length }}</div>
           <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Yêu thích</div>
+          <div class="text-xs text-soundcloud-orange mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            Click để xem
+          </div>
         </div>
-        <div class="card text-center">
+        <!-- Clickable Trending Card -->
+        <div 
+          class="card text-center cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+          @click="showTrending"
+          :class="{ 'ring-2 ring-soundcloud-orange': activeFilter === 'trending' }"
+        >
           <div class="text-lg font-bold gradient-text truncate">{{ trendingTrack || 'Chưa có' }}</div>
           <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Bài hát trending</div>
+          <div class="text-xs text-soundcloud-orange mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            Click để xem
+          </div>
         </div>
+      </div>
+
+      <!-- Active Filter Display -->
+      <div v-if="activeFilter" class="mb-6 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="flex items-center space-x-2">
+            <HeartIcon v-if="activeFilter === 'favorites'" class="w-5 h-5 text-red-500" />
+            <FireIcon v-else-if="activeFilter === 'trending'" class="w-5 h-5 text-orange-500" />
+            <span class="text-lg font-semibold text-gray-900 dark:text-dark-900">
+              {{ activeFilter === 'favorites' ? 'Bài hát yêu thích' : 'Bài hát trending' }}
+            </span>
+            <span class="text-sm text-gray-500 dark:text-dark-500">
+              ({{ filteredTracks.length }} bài)
+            </span>
+          </div>
+        </div>
+        <button
+          @click="clearFilter"
+          class="btn btn-ghost text-sm"
+        >
+          <XMarkIcon class="w-4 h-4 mr-2" />
+          Xóa bộ lọc
+        </button>
       </div>
 
       <!-- Controls -->
@@ -211,13 +250,24 @@
       <div v-if="!isLoading">
         <div v-if="filteredTracks.length === 0" class="text-center py-16">
           <div class="w-24 h-24 bg-gradient-to-br from-soundcloud-orange/20 to-soundcloud-orange-light/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <MusicalNoteIcon class="w-12 h-12 text-soundcloud-orange" />
+            <MusicalNoteIcon v-if="!activeFilter" class="w-12 h-12 text-soundcloud-orange" />
+            <HeartIcon v-else-if="activeFilter === 'favorites'" class="w-12 h-12 text-red-500" />
+            <FireIcon v-else-if="activeFilter === 'trending'" class="w-12 h-12 text-orange-500" />
           </div>
-          <h3 class="text-xl font-medium text-gray-600 dark:text-dark-600 mb-2">Chưa có bài hát nào</h3>
-          <p class="text-gray-500 dark:text-dark-500 mb-6">Upload bài hát đầu tiên để bắt đầu!</p>
-          <button @click="toggleUploadModal" class="btn btn-primary">
-            Upload Bài Hát
-          </button>
+          <h3 class="text-xl font-medium text-gray-600 dark:text-dark-600 mb-2">
+            {{ getEmptyStateTitle() }}
+          </h3>
+          <p class="text-gray-500 dark:text-dark-500 mb-6">
+            {{ getEmptyStateMessage() }}
+          </p>
+          <div class="flex justify-center space-x-4">
+            <button v-if="activeFilter" @click="clearFilter" class="btn btn-secondary">
+              Xem tất cả bài hát
+            </button>
+            <button @click="toggleUploadModal" class="btn btn-primary">
+              Upload Bài Hát
+            </button>
+          </div>
         </div>
         
         <div v-else>
@@ -326,7 +376,9 @@ import {
   ListBulletIcon,
   CheckCircleIcon,
   ExclamationTriangleIcon,
-  XCircleIcon
+  XCircleIcon,
+  HeartIcon,
+  FireIcon
 } from '@heroicons/vue/24/outline'
 import TrackItem from './components/TrackItem.vue'
 import TrackCard from './components/TrackCard.vue'
@@ -383,6 +435,9 @@ const deleteKeyCheck = ref('')
 const deleteKeyError = ref(false)
 const isDeleting = ref(false)
 
+// Filter state
+const activeFilter = ref<'favorites' | 'trending' | null>(null)
+
 // Check if mobile
 const checkMobile = () => {
   isMobile.value = window.innerWidth < 640
@@ -401,10 +456,58 @@ const handleSearchBlur = () => {
   hideSearchSuggestions()
 }
 
+// Filter methods
+const showFavorites = () => {
+  activeFilter.value = 'favorites'
+  searchQuery.value = '' // Clear search when filtering
+}
+
+const showTrending = () => {
+  activeFilter.value = 'trending'
+  searchQuery.value = '' // Clear search when filtering
+}
+
+const clearFilter = () => {
+  activeFilter.value = null
+}
+
+// Empty state helpers
+const getEmptyStateTitle = () => {
+  if (activeFilter.value === 'favorites') {
+    return 'Chưa có bài hát yêu thích'
+  } else if (activeFilter.value === 'trending') {
+    return 'Chưa có bài hát trending'
+  } else if (searchQuery.value) {
+    return 'Không tìm thấy bài hát'
+  }
+  return 'Chưa có bài hát nào'
+}
+
+const getEmptyStateMessage = () => {
+  if (activeFilter.value === 'favorites') {
+    return 'Hãy thêm bài hát vào danh sách yêu thích bằng cách nhấn vào icon trái tim!'
+  } else if (activeFilter.value === 'trending') {
+    return 'Chưa có bài hát nào có đủ lượt nghe để trở thành trending.'
+  } else if (searchQuery.value) {
+    return `Không tìm thấy kết quả cho "${searchQuery.value}". Thử tìm kiếm với từ khóa khác.`
+  }
+  return 'Upload bài hát đầu tiên để bắt đầu!'
+}
+
 // Computed
 const filteredTracks = computed(() => {
   let filtered = tracks.value
   
+  // Apply active filter first
+  if (activeFilter.value === 'favorites') {
+    filtered = filtered.filter(track => favoriteTracks.value.includes(track.id))
+  } else if (activeFilter.value === 'trending') {
+    // Show tracks with play count > 0, sorted by play count
+    filtered = filtered.filter(track => (track.playCount || 0) > 0)
+      .sort((a, b) => (b.playCount || 0) - (a.playCount || 0))
+  }
+  
+  // Then apply search filter
   if (searchQuery.value) {
     const query = searchQuery.value.toLowerCase()
     filtered = filtered.filter(track => 
@@ -413,25 +516,27 @@ const filteredTracks = computed(() => {
     )
   }
   
-  // Sort tracks
-  switch (sortBy.value) {
-    case 'oldest':
-      filtered = [...filtered].sort((a, b) => a.uploadedAt.getTime() - b.uploadedAt.getTime())
-      break
-    case 'title':
-      filtered = [...filtered].sort((a, b) => a.title.localeCompare(b.title))
-      break
-    case 'artist':
-      filtered = [...filtered].sort((a, b) => a.artist.localeCompare(b.artist))
-      break
-    case 'duration':
-      filtered = [...filtered].sort((a, b) => a.duration - b.duration)
-      break
-    case 'popular':
-      filtered = [...filtered].sort((a, b) => (b.playCount || 0) - (a.playCount || 0))
-      break
-    default: // newest
-      filtered = [...filtered].sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())
+  // Finally apply sorting (unless it's trending filter which has its own sorting)
+  if (activeFilter.value !== 'trending') {
+    switch (sortBy.value) {
+      case 'oldest':
+        filtered = [...filtered].sort((a, b) => a.uploadedAt.getTime() - b.uploadedAt.getTime())
+        break
+      case 'title':
+        filtered = [...filtered].sort((a, b) => a.title.localeCompare(b.title))
+        break
+      case 'artist':
+        filtered = [...filtered].sort((a, b) => a.artist.localeCompare(b.artist))
+        break
+      case 'duration':
+        filtered = [...filtered].sort((a, b) => a.duration - b.duration)
+        break
+      case 'popular':
+        filtered = [...filtered].sort((a, b) => (b.playCount || 0) - (a.playCount || 0))
+        break
+      default: // newest
+        filtered = [...filtered].sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())
+    }
   }
   
   return filtered
@@ -953,6 +1058,13 @@ watch(isDarkMode, (newValue) => {
 watch(tracks, () => {
   saveTracksToLocalStorage()
 }, { deep: true })
+
+// Clear filter when search is used
+watch(searchQuery, (newValue) => {
+  if (newValue && activeFilter.value) {
+    activeFilter.value = null
+  }
+})
 
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {
