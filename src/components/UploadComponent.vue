@@ -218,7 +218,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { CloudArrowUpIcon, MusicalNoteIcon, ExclamationTriangleIcon, InformationCircleIcon } from '@heroicons/vue/24/outline'
 import { supabase, uploadAudioFile, getAudioFileUrl, saveTrackToDatabase, checkStorageQuota } from '../lib/supabase'
 import type { Track, DatabaseTrack } from '../types/Track'
@@ -274,7 +274,7 @@ const storageQuota = ref<StorageQuota | null>(null)
 // Check Supabase connection and storage quota
 const checkSupabaseConnection = async () => {
   try {
-    const { data, error } = await supabase.from('tracks').select('count').limit(1)
+    const { error } = await supabase.from('tracks').select('count').limit(1)
     isSupabaseConnected.value = !error
     
     if (isSupabaseConnected.value) {

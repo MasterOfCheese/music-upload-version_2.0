@@ -338,7 +338,7 @@ import {
   recordTrackPlay,
   getTotalUniqueUsers
 } from './lib/supabase'
-import type { Track, Notification, DatabaseTrack } from './types/Track'
+import type { Track, Notification } from './types/Track'
 
 // State
 const tracks = ref<Track[]>([])
@@ -451,7 +451,7 @@ const shuffleArray = <T>(array: T[]): T[] => {
 
 const checkSupabaseConnection = async () => {
   try {
-    const { data, error } = await supabase.from('tracks').select('count').limit(1)
+    const { error } = await supabase.from('tracks').select('count').limit(1)
     isSupabaseConnected.value = !error
   } catch (error) {
     isSupabaseConnected.value = false
@@ -850,18 +850,6 @@ const removeNotification = (id: string) => {
   if (index > -1) {
     notifications.value.splice(index, 1)
   }
-}
-
-const formatTime = (seconds: number): string => {
-  if (!seconds || isNaN(seconds)) return '0:00'
-  const hours = Math.floor(seconds / 3600)
-  const mins = Math.floor((seconds % 3600) / 60)
-  const secs = Math.floor(seconds % 60)
-  
-  if (hours > 0) {
-    return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
-  return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 
 // Audio event handlers
