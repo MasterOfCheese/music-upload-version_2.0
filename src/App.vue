@@ -43,6 +43,16 @@
           
           <!-- Actions -->
           <div class="flex items-center space-x-2 sm:space-x-4">
+            <!-- Debug Button (only show if Supabase connected) -->
+            <div v-if="isSupabaseConnected" class="hidden lg:flex items-center space-x-2">
+              <button @click="debugCurrentTrack" class="btn btn-ghost text-xs">
+                Debug
+              </button>
+              <button @click="refreshAllPlayCounts" class="btn btn-ghost text-xs">
+                Refresh
+              </button>
+            </div>
+            
             <!-- Supabase Status -->
             <div class="hidden sm:flex items-center space-x-2 text-xs">
               <div class="w-2 h-2 rounded-full" :class="isSupabaseConnected ? 'bg-green-500' : 'bg-yellow-500'"></div>
@@ -116,6 +126,13 @@
         </div>
         
         <div class="flex items-center space-x-2">
+          <!-- Test buttons for debugging -->
+          <div v-if="isSupabaseConnected && currentTrack" class="hidden lg:flex items-center space-x-2 mr-4">
+            <button @click="simulateNewUser" class="btn btn-ghost text-xs">
+              +1 View
+            </button>
+          </div>
+          
           <button @click="viewMode = 'grid'" 
                   class="btn-icon"
                   :class="{ 'text-soundcloud-orange': viewMode === 'grid' }">
@@ -336,7 +353,11 @@ import {
   getAudioFileUrl,
   getUserFingerprint,
   recordTrackPlay,
-  getTotalUniqueUsers
+  getTotalUniqueUsers,
+  debugTrackPlays,
+  forceRefreshAllPlayCounts,
+  simulatePlayFromDifferentUser,
+  updateTrackPlayCount
 } from './lib/supabase'
 import type { Track, Notification } from './types/Track'
 
@@ -579,7 +600,7 @@ const stopPlayTracking = async (trackId: string) => {
       )
       
       // Refresh track data to get updated play count
-      await refreshTrackPlayCount(trackId)
+      await refreshSingleTrackPlayCount(trackId)
       
       // Update total users count
       totalUsers.value = await getTotalUniqueUsers()
@@ -590,7 +611,7 @@ const stopPlayTracking = async (trackId: string) => {
   }
 }
 
-const refreshTrackPlayCount = async (trackId: string) => {
+const refreshSingleTrackPlayCount = async (trackId: string) => {
   if (!isSupabaseConnected.value) return
   
   try {
@@ -603,10 +624,65 @@ const refreshTrackPlayCount = async (trackId: string) => {
       if (trackIndex !== -1) {
         tracks.value[trackIndex].playCount = updatedTrack.play_count || 0
         console.log(`Updated play count for track ${trackId}: ${updatedTrack.play_count}`)
+        
+        // Force reactivity update
+        tracks.value = [...tracks.value]
       }
     }
   } catch (error) {
     console.error('Error refreshing track play count:', error)
+  }
+}
+
+// Debug functions
+const debugCurrentTrack = async () => {
+  if (!currentTrack.value || !isSupabaseConnected.value) {
+    showNotification('warning', 'Debug không khả dụng', 'Cần có bài hát đang phát và kết nối Supabase')
+    return
+  }
+  
+  const debugInfo = await debugTrackPlays(currentTrack.value.id)
+  console.log('Debug info:', debugInfo)
+  
+  showNotification('success', 'Debug hoàn thành', `Check console để xem chi tiết track ${currentTrack.value.title}`)
+}
+
+const refreshAllPlayCounts = async () => {
+  if (!isSupabaseConnected.value) {
+    showNotification('warning', 'Refresh không khả dụng', 'Cần kết nối Supabase')
+    return
+  }
+  
+  showNotification('success', 'Đang refresh...', 'Đang cập nhật tất cả play counts')
+  
+  const success = await forceRefreshAllPlayCounts()
+  if (success) {
+    // Reload tracks to get updated counts
+    await loadTracks()
+    showNotification('success', 'Refresh thành công', 'Đã cập nhật tất cả play counts')
+  } else {
+    showNotification('error', 'Refresh thất bại', 'Không thể cập nhật play counts')
+  }
+}
+
+const simulateNewUser = async () => {
+  if (!currentTrack.value || !isSupabaseConnected.value) {
+    showNotification('warning', 'Simulate không khả dụng', 'Cần có bài hát đang phát và kết nối Supabase')
+    return
+  }
+  
+  try {
+    await simulatePlayFromDifferentUser(currentTrack.value.id)
+    
+    // Wait a bit then refresh
+    setTimeout(async () => {
+      await refreshSingleTrackPlayCount(currentTrack.value!.id)
+      showNotification('success', 'Đã thêm 1 view', `Bài hát ${currentTrack.value!.title} đã được cộng view`)
+    }, 2000)
+    
+  } catch (error) {
+    console.error('Error simulating new user:', error)
+    showNotification('error', 'Simulate thất bại', 'Không thể thêm view')
   }
 }
 

@@ -232,7 +232,10 @@ export const recordTrackPlay = async (trackId: string, userIp: string, userAgent
     
     console.log('Track play recorded successfully:', data[0])
     
-    // Manually update the play count in tracks table
+    // Wait a bit for trigger to process
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // Manually update the play count to ensure it's updated
     await updateTrackPlayCount(trackId)
     
     return data[0]
@@ -279,6 +282,7 @@ export const updateTrackPlayCount = async (trackId: string) => {
 
     console.log(`Successfully updated play count for track ${trackId} to ${playCount}`)
     
+    return playCount
   } catch (error) {
     console.error('Error updating track play count:', error)
     throw error
@@ -319,5 +323,117 @@ export const getTotalUniqueUsers = async () => {
   } catch (error) {
     console.error('Error getting total unique users:', error)
     return 0
+  }
+}
+
+// DEBUG FUNCTIONS - For testing purposes
+export const debugTrackPlays = async (trackId: string) => {
+  try {
+    console.log(`=== DEBUG: Track ${trackId} ===`)
+    
+    // Get all plays for this track
+    const { data: plays, error: playsError } = await supabase
+      .from('track_plays')
+      .select('*')
+      .eq('track_id', trackId)
+      .order('played_at', { ascending: false })
+
+    if (playsError) {
+      console.error('Error getting plays:', playsError)
+      return
+    }
+
+    console.log('All plays:', plays)
+    
+    // Get unique IPs with 10+ seconds
+    const validPlays = plays?.filter(play => play.play_duration >= 10) || []
+    const uniqueIPs = new Set(validPlays.map(play => play.user_ip))
+    
+    console.log('Valid plays (10+ seconds):', validPlays)
+    console.log('Unique IPs:', Array.from(uniqueIPs))
+    console.log('Expected play count:', uniqueIPs.size)
+    
+    // Get current track data
+    const { data: track, error: trackError } = await supabase
+      .from('tracks')
+      .select('play_count')
+      .eq('id', trackId)
+      .single()
+
+    if (trackError) {
+      console.error('Error getting track:', trackError)
+      return
+    }
+
+    console.log('Current play_count in database:', track?.play_count)
+    console.log('=== END DEBUG ===')
+    
+    return {
+      totalPlays: plays?.length || 0,
+      validPlays: validPlays.length,
+      uniqueUsers: uniqueIPs.size,
+      currentPlayCount: track?.play_count || 0
+    }
+  } catch (error) {
+    console.error('Debug error:', error)
+  }
+}
+
+// Force refresh all play counts
+export const forceRefreshAllPlayCounts = async () => {
+  try {
+    console.log('Force refreshing all play counts...')
+    
+    const { data: tracks, error } = await supabase
+      .from('tracks')
+      .select('id')
+
+    if (error) throw error
+
+    for (const track of tracks || []) {
+      await updateTrackPlayCount(track.id)
+      // Small delay to avoid overwhelming the database
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    
+    console.log('All play counts refreshed!')
+    return true
+  } catch (error) {
+    console.error('Error force refreshing play counts:', error)
+    return false
+  }
+}
+
+// Test function to simulate different users
+export const simulatePlayFromDifferentUser = async (trackId: string) => {
+  try {
+    const randomIp = `192.168.1.${Math.floor(Math.random() * 255)}`
+    const randomUserAgent = `TestAgent-${Math.random().toString(36).substring(7)}`
+    
+    console.log(`Simulating play from IP: ${randomIp}`)
+    
+    const { data, error } = await supabase
+      .from('track_plays')
+      .insert([{
+        track_id: trackId,
+        user_ip: randomIp,
+        user_agent: randomUserAgent,
+        play_duration: 15, // 15 seconds
+        played_at: new Date().toISOString()
+      }])
+      .select()
+
+    if (error) throw error
+    
+    console.log('Simulated play recorded:', data[0])
+    
+    // Wait for trigger and update
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    await updateTrackPlayCount(trackId)
+    
+    return data[0]
+  } catch (error) {
+    console.error('Error simulating play:', error)
+    throw error
   }
 }
