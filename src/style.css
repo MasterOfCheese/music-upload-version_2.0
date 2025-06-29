@@ -162,6 +162,32 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+
+  /* Mobile specific improvements */
+  @media (max-width: 640px) {
+    .card {
+      @apply p-4 rounded-xl;
+    }
+    
+    .track-item {
+      @apply hover:scale-100; /* Disable scale on mobile */
+    }
+    
+    .btn-icon {
+      @apply hover:scale-100; /* Disable scale on mobile */
+    }
+    
+    /* Improve touch targets */
+    .btn {
+      @apply min-h-[44px] min-w-[44px];
+    }
+    
+    /* Better spacing for mobile */
+    .soundcloud-waveform {
+      @apply rounded-md;
+      min-height: 60px; /* Ensure minimum height for touch */
+    }
+  }
 }
 
 @layer utilities {
@@ -206,17 +232,15 @@
 
 /* Mobile touch improvements */
 @media (max-width: 768px) {
-  .btn {
-    @apply min-h-[44px] min-w-[44px];
-  }
-  
-  .btn-icon {
-    @apply w-12 h-12;
-  }
-
   /* Improve mobile track item spacing */
   .track-item .card {
     @apply p-4;
+  }
+  
+  /* Better mobile waveform */
+  .soundcloud-waveform {
+    min-height: 50px;
+    touch-action: manipulation;
   }
 }
 

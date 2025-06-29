@@ -4,7 +4,7 @@
     <div class="sm:hidden">
       <!-- Track Title - Full width on mobile -->
       <div class="mb-3">
-        <h3 class="text-base font-semibold text-gray-900 dark:text-dark-900 leading-tight">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-dark-900 leading-tight">
           {{ track.title }}
         </h3>
         <p class="text-sm text-gray-500 dark:text-dark-500 mt-1">
@@ -13,7 +13,7 @@
       </div>
       
       <!-- Secondary info row -->
-      <div class="flex items-center justify-between mb-3">
+      <div class="flex items-center justify-between mb-4">
         <div class="flex items-center space-x-3 text-xs text-gray-400 dark:text-dark-400">
           <span>{{ formatDuration(track.duration) }}</span>
           <span>•</span>
@@ -21,47 +21,49 @@
         </div>
         
         <!-- Mobile Action Buttons -->
-        <div class="flex items-center space-x-1">
+        <div class="flex items-center space-x-2">
           <button
             @click="$emit('toggle-favorite', track.id)"
-            class="btn-icon p-2"
+            class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-200 transition-colors"
             :class="isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'"
           >
-            <HeartIcon :class="isFavorite ? 'fill-current' : ''" class="w-4 h-4" />
+            <HeartIcon :class="isFavorite ? 'fill-current' : ''" class="w-5 h-5" />
           </button>
           
           <button
             @click="$emit('share', track)"
-            class="btn-icon p-2 text-gray-400 hover:text-blue-500"
+            class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-200 transition-colors text-gray-400 hover:text-blue-500"
           >
-            <ShareIcon class="w-4 h-4" />
+            <ShareIcon class="w-5 h-5" />
           </button>
           
           <button
             @click="$emit('delete', track.id)"
-            class="btn-icon p-2 text-gray-400 hover:text-red-500"
+            class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-200 transition-colors text-gray-400 hover:text-red-500"
           >
-            <TrashIcon class="w-4 h-4" />
+            <TrashIcon class="w-5 h-5" />
           </button>
         </div>
       </div>
       
       <!-- Play button and waveform row -->
-      <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-4">
         <button
           @click="togglePlay"
-          class="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-soundcloud-orange to-soundcloud-orange-light text-white rounded-full flex items-center justify-center hover:shadow-glow transition-all duration-200 transform hover:scale-110"
+          class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-soundcloud-orange to-soundcloud-orange-light text-white rounded-full flex items-center justify-center hover:shadow-glow transition-all duration-200 transform hover:scale-105"
         >
-          <PlayIcon v-if="!isPlaying" class="w-5 h-5 ml-0.5" />
-          <PauseIcon v-else class="w-5 h-5" />
+          <PlayIcon v-if="!isPlaying" class="w-6 h-6 ml-0.5" />
+          <PauseIcon v-else class="w-6 h-6" />
         </button>
         
-        <!-- Waveform -->
-        <div class="flex-1">
+        <!-- Mobile Waveform - Takes remaining space -->
+        <div class="flex-1 min-w-0">
           <WaveformDisplay
             :waveform-data="track.waveformData"
             :is-current="isCurrent"
             :progress="isCurrent ? (currentTime / duration) * 100 : 0"
+            :is-playing="isPlaying && isCurrent"
+            :duration="track.duration"
             @seek="onSeek"
           />
         </div>
@@ -95,7 +97,7 @@
             <!-- Desktop Action Buttons -->
             <button
               @click="$emit('toggle-favorite', track.id)"
-              class="btn-icon"
+              class="btn-icon w-10 h-10"
               :class="isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'"
             >
               <HeartIcon :class="isFavorite ? 'fill-current' : ''" class="w-5 h-5" />
@@ -103,26 +105,28 @@
             
             <button
               @click="$emit('share', track)"
-              class="btn-icon text-gray-400 hover:text-blue-500"
+              class="btn-icon w-10 h-10 text-gray-400 hover:text-blue-500"
             >
               <ShareIcon class="w-5 h-5" />
             </button>
             
             <button
               @click="$emit('delete', track.id)"
-              class="btn-icon text-gray-400 hover:text-red-500"
+              class="btn-icon w-10 h-10 text-gray-400 hover:text-red-500"
             >
               <TrashIcon class="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        <!-- Waveform -->
+        <!-- Desktop Waveform -->
         <div class="relative">
           <WaveformDisplay
             :waveform-data="track.waveformData"
             :is-current="isCurrent"
             :progress="isCurrent ? (currentTime / duration) * 100 : 0"
+            :is-playing="isPlaying && isCurrent"
+            :duration="track.duration"
             @seek="onSeek"
           />
         </div>
