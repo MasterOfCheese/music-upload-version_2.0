@@ -130,6 +130,14 @@
     opacity: 0;
     transform: translateY(-20px);
   }
+
+  /* Line clamp utility for mobile track titles */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 }
 
 @layer utilities {
@@ -180,6 +188,11 @@
   
   .btn-icon {
     @apply w-12 h-12;
+  }
+
+  /* Improve mobile track item spacing */
+  .track-item .card {
+    @apply p-4;
   }
 }
 

@@ -82,16 +82,16 @@
           <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Tổng số bài</div>
         </div>
         <div class="card text-center">
-          <div class="text-2xl font-bold gradient-text">{{ totalDuration }}</div>
-          <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Tổng thời lượng</div>
+          <div class="text-2xl font-bold gradient-text">{{ totalUsers }}</div>
+          <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Tổng số User</div>
         </div>
         <div class="card text-center">
           <div class="text-2xl font-bold gradient-text">{{ favoriteTracks.length }}</div>
           <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Yêu thích</div>
         </div>
         <div class="card text-center">
-          <div class="text-2xl font-bold gradient-text">{{ recentlyPlayed.length }}</div>
-          <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Nghe gần đây</div>
+          <div class="text-lg font-bold gradient-text truncate">{{ trendingTrack || 'Chưa có' }}</div>
+          <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Bài hát trending</div>
         </div>
       </div>
 
@@ -111,6 +111,7 @@
             <option value="title">Tên A-Z</option>
             <option value="artist">Nghệ sĩ A-Z</option>
             <option value="duration">Thời lượng</option>
+            <option value="popular">Phổ biến nhất</option>
           </select>
         </div>
         
@@ -352,6 +353,11 @@ const notifications = ref<Notification[]>([])
 const isLoading = ref(true)
 const isSupabaseConnected = ref(false)
 
+// User tracking
+const userIPs = ref<Set<string>>(new Set())
+const trackPlayCounts = ref<Map<string, number>>(new Map())
+const trackPlayTimes = ref<Map<string, number>>(new Map())
+
 // Delete confirmation modal state
 const showDeleteModal = ref(false)
 const trackToDelete = ref<Track | null>(null)
@@ -385,6 +391,9 @@ const filteredTracks = computed(() => {
     case 'duration':
       filtered = [...filtered].sort((a, b) => a.duration - b.duration)
       break
+    case 'popular':
+      filtered = [...filtered].sort((a, b) => (b.playCount || 0) - (a.playCount || 0))
+      break
     default: // newest
       filtered = [...filtered].sort((a, b) => b.uploadedAt.getTime() - a.uploadedAt.getTime())
   }
@@ -412,9 +421,17 @@ const searchSuggestions = computed(() => {
   return Array.from(suggestions).slice(0, 5)
 })
 
-const totalDuration = computed(() => {
-  const total = tracks.value.reduce((sum, track) => sum + track.duration, 0)
-  return formatTime(total)
+const totalUsers = computed(() => {
+  return userIPs.value.size
+})
+
+const trendingTrack = computed(() => {
+  if (tracks.value.length === 0) return null
+  
+  const sortedByPlays = [...tracks.value].sort((a, b) => (b.playCount || 0) - (a.playCount || 0))
+  const topTrack = sortedByPlays[0]
+  
+  return (topTrack?.playCount || 0) > 0 ? topTrack.title : null
 })
 
 // Methods
@@ -425,6 +442,53 @@ const shuffleArray = <T>(array: T[]): T[] => {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
   return shuffled
+}
+
+const getUserIP = async () => {
+  try {
+    const response = await fetch('https://api.ipify.org?format=json')
+    const data = await response.json()
+    userIPs.value.add(data.ip)
+    localStorage.setItem('userIPs', JSON.stringify(Array.from(userIPs.value)))
+  } catch (error) {
+    // Fallback: use a random ID if IP detection fails
+    const randomId = Math.random().toString(36).substring(7)
+    userIPs.value.add(randomId)
+    localStorage.setItem('userIPs', JSON.stringify(Array.from(userIPs.value)))
+  }
+}
+
+const trackPlayTime = (trackId: string) => {
+  const startTime = Date.now()
+  
+  const checkPlayTime = () => {
+    if (currentTrack.value?.id === trackId && isPlaying.value) {
+      const playTime = (trackPlayTimes.value.get(trackId) || 0) + 100
+      trackPlayTimes.value.set(trackId, playTime)
+      
+      // If played for more than 10 seconds, count as a play
+      if (playTime >= 10000) {
+        const currentCount = trackPlayCounts.value.get(trackId) || 0
+        trackPlayCounts.value.set(trackId, currentCount + 1)
+        
+        // Update track play count
+        const track = tracks.value.find(t => t.id === trackId)
+        if (track) {
+          track.playCount = (track.playCount || 0) + 1
+        }
+        
+        // Reset play time for this session
+        trackPlayTimes.value.set(trackId, 0)
+        
+        // Save to localStorage
+        localStorage.setItem('trackPlayCounts', JSON.stringify(Array.from(trackPlayCounts.value)))
+      }
+      
+      setTimeout(checkPlayTime, 100)
+    }
+  }
+  
+  checkPlayTime()
 }
 
 const checkSupabaseConnection = async () => {
@@ -453,7 +517,8 @@ const loadTracksFromSupabase = async () => {
           uploadedAt: new Date(dbTrack.uploaded_at),
           waveformData: dbTrack.waveform_data,
           fileName: dbTrack.file_name,
-          fileSize: dbTrack.file_size
+          fileSize: dbTrack.file_size,
+          playCount: dbTrack.play_count || 0
         })
       } catch (error) {
         console.error(`Error loading track ${dbTrack.title}:`, error)
@@ -474,7 +539,8 @@ const loadTracksFromLocalStorage = (): Track[] => {
       const parsed = JSON.parse(savedTracks)
       return parsed.map((track: any) => ({
         ...track,
-        uploadedAt: new Date(track.uploadedAt)
+        uploadedAt: new Date(track.uploadedAt),
+        playCount: track.playCount || 0
       }))
     }
   } catch (error) {
@@ -489,6 +555,22 @@ const saveTracksToLocalStorage = () => {
     localStorage.setItem('tracks', JSON.stringify(localTracks))
   } catch (error) {
     console.error('Error saving tracks to localStorage:', error)
+  }
+}
+
+const loadUserData = () => {
+  try {
+    const savedUserIPs = localStorage.getItem('userIPs')
+    if (savedUserIPs) {
+      userIPs.value = new Set(JSON.parse(savedUserIPs))
+    }
+    
+    const savedPlayCounts = localStorage.getItem('trackPlayCounts')
+    if (savedPlayCounts) {
+      trackPlayCounts.value = new Map(JSON.parse(savedPlayCounts))
+    }
+  } catch (error) {
+    console.error('Error loading user data:', error)
   }
 }
 
@@ -510,6 +592,12 @@ const loadTracks = async () => {
     // Load from localStorage (for local tracks)
     const localTracks = loadTracksFromLocalStorage()
     allTracks = [...allTracks, ...localTracks]
+    
+    // Apply play counts from localStorage
+    allTracks.forEach(track => {
+      const playCount = trackPlayCounts.value.get(track.id) || 0
+      track.playCount = Math.max(track.playCount || 0, playCount)
+    })
     
     tracks.value = allTracks
     
@@ -554,6 +642,7 @@ const playTrack = (track?: Track) => {
       currentTrack.value = track
       loadTrack(track)
       addToRecentlyPlayed(track.id)
+      trackPlayTime(track.id) // Start tracking play time
     }
   }
   
@@ -808,6 +897,8 @@ onMounted(async () => {
   audio.value = new Audio()
   setupAudioEvents()
   loadPreferences()
+  loadUserData()
+  await getUserIP()
   await loadTracks()
 })
 
@@ -825,3 +916,4 @@ watch(tracks, () => {
   saveTracksToLocalStorage()
 }, { deep: true })
 </script>
+</template>

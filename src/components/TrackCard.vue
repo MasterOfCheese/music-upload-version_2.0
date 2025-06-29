@@ -29,8 +29,18 @@
     
     <!-- Track Info -->
     <div class="space-y-2">
-      <h3 class="font-semibold text-gray-900 dark:text-dark-900 truncate">{{ track.title }}</h3>
+      <div class="min-h-[3rem]">
+        <h3 class="font-semibold text-gray-900 dark:text-dark-900 text-sm leading-tight line-clamp-2">
+          {{ track.title }}
+        </h3>
+      </div>
       <p class="text-sm text-gray-500 dark:text-dark-500 truncate">{{ track.artist }}</p>
+      
+      <!-- Play Count -->
+      <div class="flex items-center justify-between text-xs text-gray-400 dark:text-dark-400">
+        <span>{{ track.playCount || 0 }} lượt play</span>
+        <span>{{ formatDuration(track.duration) }}</span>
+      </div>
       
       <!-- Mini Waveform -->
       <div class="h-8">
@@ -45,19 +55,17 @@
       
       <!-- Actions -->
       <div class="flex items-center justify-between pt-2">
-        <span class="text-xs text-gray-400 dark:text-dark-400">{{ formatDuration(track.duration) }}</span>
-        
         <div class="flex items-center space-x-1">
           <button
             @click="$emit('share', track)"
-            class="btn-icon text-gray-400 hover:text-blue-500"
+            class="btn-icon text-gray-400 hover:text-blue-500 p-1"
           >
             <ShareIcon class="w-4 h-4" />
           </button>
           
           <button
             @click="$emit('delete', track.id)"
-            class="btn-icon text-gray-400 hover:text-red-500"
+            class="btn-icon text-gray-400 hover:text-red-500 p-1"
           >
             <TrashIcon class="w-4 h-4" />
           </button>

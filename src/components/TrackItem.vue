@@ -1,47 +1,99 @@
 <template>
   <div class="card track-item">
-    <div class="flex items-center space-x-4">
+    <div class="flex items-center space-x-3 sm:space-x-4">
       <!-- Play Button -->
       <button
         @click="togglePlay"
-        class="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-soundcloud-orange to-soundcloud-orange-light text-white rounded-full flex items-center justify-center hover:shadow-glow transition-all duration-200 transform hover:scale-110"
+        class="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-soundcloud-orange to-soundcloud-orange-light text-white rounded-full flex items-center justify-center hover:shadow-glow transition-all duration-200 transform hover:scale-110"
       >
-        <PlayIcon v-if="!isPlaying" class="w-6 h-6 ml-1" />
-        <PauseIcon v-else class="w-6 h-6" />
+        <PlayIcon v-if="!isPlaying" class="w-5 h-5 sm:w-6 sm:h-6 ml-0.5" />
+        <PauseIcon v-else class="w-5 h-5 sm:w-6 sm:h-6" />
       </button>
 
       <!-- Track Info -->
       <div class="flex-1 min-w-0">
-        <div class="flex items-center justify-between mb-3">
-          <div class="min-w-0 flex-1">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-dark-900 truncate">{{ track.title }}</h3>
-            <p class="text-sm text-gray-500 dark:text-dark-500 truncate">{{ track.artist }}</p>
+        <!-- Mobile Layout -->
+        <div class="sm:hidden">
+          <div class="flex flex-col space-y-2 mb-3">
+            <div class="flex items-start justify-between">
+              <div class="min-w-0 flex-1 pr-2">
+                <h3 class="text-base font-semibold text-gray-900 dark:text-dark-900 leading-tight">
+                  {{ track.title }}
+                </h3>
+                <p class="text-sm text-gray-500 dark:text-dark-500 mt-1">
+                  {{ track.artist }}
+                </p>
+                <div class="flex items-center space-x-3 mt-1 text-xs text-gray-400 dark:text-dark-400">
+                  <span>{{ formatDuration(track.duration) }}</span>
+                  <span>•</span>
+                  <span>{{ track.playCount || 0 }} lượt play</span>
+                </div>
+              </div>
+              
+              <!-- Mobile Action Buttons -->
+              <div class="flex items-center space-x-1 flex-shrink-0">
+                <button
+                  @click="$emit('toggle-favorite', track.id)"
+                  class="btn-icon p-2"
+                  :class="isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'"
+                >
+                  <HeartIcon :class="isFavorite ? 'fill-current' : ''" class="w-4 h-4" />
+                </button>
+                
+                <button
+                  @click="$emit('share', track)"
+                  class="btn-icon p-2 text-gray-400 hover:text-blue-500"
+                >
+                  <ShareIcon class="w-4 h-4" />
+                </button>
+                
+                <button
+                  @click="$emit('delete', track.id)"
+                  class="btn-icon p-2 text-gray-400 hover:text-red-500"
+                >
+                  <TrashIcon class="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           </div>
-          <div class="flex items-center space-x-2 ml-4">
-            <span class="text-sm text-gray-400 dark:text-dark-400">{{ formatDuration(track.duration) }}</span>
-            
-            <!-- Action Buttons -->
-            <button
-              @click="$emit('toggle-favorite', track.id)"
-              class="btn-icon"
-              :class="isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'"
-            >
-              <HeartIcon :class="isFavorite ? 'fill-current' : ''" class="w-5 h-5" />
-            </button>
-            
-            <button
-              @click="$emit('share', track)"
-              class="btn-icon text-gray-400 hover:text-blue-500"
-            >
-              <ShareIcon class="w-5 h-5" />
-            </button>
-            
-            <button
-              @click="$emit('delete', track.id)"
-              class="btn-icon text-gray-400 hover:text-red-500"
-            >
-              <TrashIcon class="w-5 h-5" />
-            </button>
+        </div>
+
+        <!-- Desktop Layout -->
+        <div class="hidden sm:block">
+          <div class="flex items-center justify-between mb-3">
+            <div class="min-w-0 flex-1">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-dark-900 truncate">{{ track.title }}</h3>
+              <div class="flex items-center space-x-4 mt-1">
+                <p class="text-sm text-gray-500 dark:text-dark-500 truncate">{{ track.artist }}</p>
+                <span class="text-xs text-gray-400 dark:text-dark-400">{{ track.playCount || 0 }} lượt play</span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2 ml-4">
+              <span class="text-sm text-gray-400 dark:text-dark-400">{{ formatDuration(track.duration) }}</span>
+              
+              <!-- Desktop Action Buttons -->
+              <button
+                @click="$emit('toggle-favorite', track.id)"
+                class="btn-icon"
+                :class="isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'"
+              >
+                <HeartIcon :class="isFavorite ? 'fill-current' : ''" class="w-5 h-5" />
+              </button>
+              
+              <button
+                @click="$emit('share', track)"
+                class="btn-icon text-gray-400 hover:text-blue-500"
+              >
+                <ShareIcon class="w-5 h-5" />
+              </button>
+              
+              <button
+                @click="$emit('delete', track.id)"
+                class="btn-icon text-gray-400 hover:text-red-500"
+              >
+                <TrashIcon class="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
 
