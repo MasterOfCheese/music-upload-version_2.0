@@ -1,17 +1,18 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-// https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [vue()],
+  root: '.', // Thư mục gốc chứa index.html
+  plugins: [vue()], // Plugin Vue
   build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-    sourcemap: false
+    outDir: 'dist', // Thư mục output
+    assetsDir: 'assets', // Thư mục chứa assets
+    sourcemap: false, // Tắt sourcemap để giảm kích thước build
   },
+  base: '/', // Sửa base thành '/' (đường dẫn cơ sở mặc định)
   resolve: {
     alias: {
-      '@': '/src'
-    }
-  }
+      '@': '/src', // Alias để import dễ dàng hơn
+    },
+  },
 })
