@@ -86,14 +86,14 @@
           <div class="text-2xl font-bold gradient-text">{{ totalUsers }}</div>
           <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Tổng số User</div>
         </div>
-        <!-- Clickable Favorites Card -->
+        <!-- Clickable Favorites Card - Now shows user-specific count -->
         <div 
           class="card text-center cursor-pointer hover:shadow-xl transition-all duration-300 transform hover:scale-105 group"
           @click="showFavorites"
           :class="{ 'ring-2 ring-soundcloud-orange': activeFilter === 'favorites' }"
         >
-          <div class="text-2xl font-bold gradient-text">{{ favoriteTracks.length }}</div>
-          <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Yêu thích</div>
+          <div class="text-2xl font-bold gradient-text">{{ userFavoriteTracks.length }}</div>
+          <div class="text-sm text-gray-600 dark:text-dark-600 font-medium">Yêu thích của bạn</div>
           <div class="text-xs text-soundcloud-orange mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
             Click để xem
           </div>
@@ -289,7 +289,7 @@
               :track="track"
               :is-playing="currentTrack?.id === track.id && isPlaying"
               :is-current="currentTrack?.id === track.id"
-              :is-favorite="favoriteTracks.includes(track.id)"
+              :is-favorite="userFavoriteTracks.includes(track.id)"
               :current-time="currentTime"
               :duration="duration"
               @play="playTrack"
@@ -309,7 +309,7 @@
               :track="track"
               :is-playing="currentTrack?.id === track.id && isPlaying"
               :is-current="currentTrack?.id === track.id"
-              :is-favorite="favoriteTracks.includes(track.id)"
+              :is-favorite="userFavoriteTracks.includes(track.id)"
               :current-time="currentTime"
               :duration="duration"
               @play="playTrack"
@@ -334,7 +334,7 @@
       :volume="volume"
       :repeat-mode="repeatMode"
       :is-shuffled="isShuffled"
-      :is-favorite="favoriteTracks.includes(currentTrack.id)"
+      :is-favorite="userFavoriteTracks.includes(currentTrack.id)"
       @play="playTrack"
       @pause="pauseTrack"
       @next="nextTrack"
@@ -402,7 +402,10 @@ import {
   getUserFingerprint,
   recordTrackPlay,
   getTotalUniqueUsers,
-  updateTrackPlayCount
+  updateTrackPlayCount,
+  getUserFavorites,
+  addToUserFavorites,
+  removeFromUserFavorites
 } from './lib/supabase'
 import type { Track, Notification } from './types/Track'
 
@@ -422,7 +425,7 @@ const isDarkMode = ref(false)
 const viewMode = ref<'list' | 'grid'>('list')
 const sortBy = ref('newest')
 const audio = ref<HTMLAudioElement | null>(null)
-const favoriteTracks = ref<string[]>([])
+const userFavoriteTracks = ref<string[]>([]) // Changed from favoriteTracks to userFavoriteTracks
 const recentlyPlayed = ref<string[]>([])
 const notifications = ref<Notification[]>([])
 const isLoading = ref(true)
@@ -432,7 +435,7 @@ const isSupabaseConnected = ref(false)
 const isMobile = ref(false)
 const isMobileSearchFocused = ref(false)
 
-// User tracking for play counts
+// User tracking for play counts and favorites
 const userFingerprint = ref<{ ip: string; userAgent: string; fingerprint: string } | null>(null)
 const trackPlayStartTime = ref<Map<string, number>>(new Map())
 const totalUsers = ref(0)
@@ -491,7 +494,7 @@ const getFilterTitle = () => {
     case 'all':
       return 'Tất cả bài hát'
     case 'favorites':
-      return 'Bài hát yêu thích'
+      return 'Bài hát yêu thích của bạn'
     case 'trending':
       return 'Bài hát trending'
     default:
@@ -535,7 +538,8 @@ const filteredTracks = computed(() => {
     // Show all tracks (no filtering)
     filtered = tracks.value
   } else if (activeFilter.value === 'favorites') {
-    filtered = filtered.filter(track => favoriteTracks.value.includes(track.id))
+    // FIXED: Now filters based on user-specific favorites
+    filtered = filtered.filter(track => userFavoriteTracks.value.includes(track.id))
   } else if (activeFilter.value === 'trending') {
     // FIXED: Show only THE TOP trending track (not all tracks with plays > 0)
     const tracksWithPlays = filtered.filter(track => (track.playCount || 0) > 0)
@@ -689,6 +693,26 @@ const saveTracksToLocalStorage = () => {
   }
 }
 
+// NEW: Load user-specific favorites
+const loadUserFavorites = async () => {
+  if (!userFingerprint.value || !isSupabaseConnected.value) {
+    // Fallback to localStorage for local favorites
+    const savedFavorites = localStorage.getItem(`favorites_${userFingerprint.value?.fingerprint || 'local'}`)
+    if (savedFavorites) {
+      userFavoriteTracks.value = JSON.parse(savedFavorites)
+    }
+    return
+  }
+  
+  try {
+    const favorites = await getUserFavorites(userFingerprint.value.ip, userFingerprint.value.userAgent)
+    userFavoriteTracks.value = favorites
+    console.log(`Loaded ${favorites.length} favorites for user ${userFingerprint.value.ip}`)
+  } catch (error) {
+    console.error('Error loading user favorites:', error)
+  }
+}
+
 const loadTracks = async () => {
   isLoading.value = true
   
@@ -760,9 +784,6 @@ const stopPlayTracking = async (trackId: string) => {
           tracks.value = [...tracks.value]
           
           console.log(`UI updated: Track ${trackId} now has ${result.newPlayCount} plays`)
-          
-          // REMOVED: No more notification for view count
-          // showNotification('success', 'View đã được cộng!', `+1 view cho "${tracks.value[trackIndex].title}"`)
         }
         
         // Update total users count
@@ -899,16 +920,39 @@ const toggleShuffle = () => {
   isShuffled.value = !isShuffled.value
 }
 
-const toggleFavorite = (trackId: string) => {
-  const index = favoriteTracks.value.indexOf(trackId)
-  if (index > -1) {
-    favoriteTracks.value.splice(index, 1)
-    showNotification('success', 'Đã xóa khỏi yêu thích', '')
-  } else {
-    favoriteTracks.value.push(trackId)
-    showNotification('success', 'Đã thêm vào yêu thích', '')
+// NEW: Updated toggleFavorite to use user-specific favorites
+const toggleFavorite = async (trackId: string) => {
+  if (!userFingerprint.value) {
+    showNotification('warning', 'Không thể thêm yêu thích', 'Đang tải thông tin user...')
+    return
   }
-  localStorage.setItem('favorites', JSON.stringify(favoriteTracks.value))
+  
+  const isFavorited = userFavoriteTracks.value.includes(trackId)
+  
+  try {
+    if (isFavorited) {
+      // Remove from favorites
+      if (isSupabaseConnected.value) {
+        await removeFromUserFavorites(trackId, userFingerprint.value.ip)
+      }
+      userFavoriteTracks.value = userFavoriteTracks.value.filter(id => id !== trackId)
+      showNotification('success', 'Đã xóa khỏi yêu thích', '')
+    } else {
+      // Add to favorites
+      if (isSupabaseConnected.value) {
+        await addToUserFavorites(trackId, userFingerprint.value.ip, userFingerprint.value.userAgent)
+      }
+      userFavoriteTracks.value.push(trackId)
+      showNotification('success', 'Đã thêm vào yêu thích', '')
+    }
+    
+    // Save to localStorage as backup
+    localStorage.setItem(`favorites_${userFingerprint.value.fingerprint}`, JSON.stringify(userFavoriteTracks.value))
+    
+  } catch (error) {
+    console.error('Error toggling favorite:', error)
+    showNotification('error', 'Lỗi', 'Không thể cập nhật yêu thích')
+  }
 }
 
 const shareTrack = (track: Track) => {
@@ -1060,11 +1104,6 @@ const loadPreferences = () => {
     volume.value = parseFloat(savedVolume)
   }
   
-  const savedFavorites = localStorage.getItem('favorites')
-  if (savedFavorites) {
-    favoriteTracks.value = JSON.parse(savedFavorites)
-  }
-  
   const savedRecentlyPlayed = localStorage.getItem('recentlyPlayed')
   if (savedRecentlyPlayed) {
     recentlyPlayed.value = JSON.parse(savedRecentlyPlayed)
@@ -1077,10 +1116,13 @@ onMounted(async () => {
   loadPreferences()
   checkMobile()
   
-  // Get user fingerprint for play tracking
+  // Get user fingerprint for play tracking and favorites
   userFingerprint.value = await getUserFingerprint()
   
   await loadTracks()
+  
+  // Load user-specific favorites after getting fingerprint
+  await loadUserFavorites()
   
   // Listen for window resize
   window.addEventListener('resize', checkMobile)

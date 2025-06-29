@@ -307,6 +307,85 @@ export const getTotalUniqueUsers = async () => {
   }
 }
 
+// USER FAVORITES FUNCTIONS - NEW
+export const getUserFavorites = async (userIp: string, userAgent: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_favorites')
+      .select('track_id')
+      .eq('user_ip', userIp)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    
+    return data?.map(fav => fav.track_id) || []
+  } catch (error) {
+    console.error('Error getting user favorites:', error)
+    return []
+  }
+}
+
+export const addToUserFavorites = async (trackId: string, userIp: string, userAgent: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_favorites')
+      .insert([{
+        track_id: trackId,
+        user_ip: userIp,
+        user_agent: userAgent
+      }])
+      .select()
+
+    if (error) {
+      // If it's a duplicate, that's okay - user already has it favorited
+      if (error.code === '23505') { // Unique constraint violation
+        console.log('Track already in favorites')
+        return null
+      }
+      throw error
+    }
+    
+    console.log('Added to favorites:', data[0])
+    return data[0]
+  } catch (error) {
+    console.error('Error adding to favorites:', error)
+    throw error
+  }
+}
+
+export const removeFromUserFavorites = async (trackId: string, userIp: string) => {
+  try {
+    const { error } = await supabase
+      .from('user_favorites')
+      .delete()
+      .eq('track_id', trackId)
+      .eq('user_ip', userIp)
+
+    if (error) throw error
+    
+    console.log('Removed from favorites:', trackId)
+  } catch (error) {
+    console.error('Error removing from favorites:', error)
+    throw error
+  }
+}
+
+export const getTrackFavoriteCount = async (trackId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_favorites')
+      .select('id')
+      .eq('track_id', trackId)
+
+    if (error) throw error
+    
+    return data?.length || 0
+  } catch (error) {
+    console.error('Error getting track favorite count:', error)
+    return 0
+  }
+}
+
 // DEBUG FUNCTIONS - For testing purposes
 export const debugTrackPlays = async (trackId: string) => {
   try {
