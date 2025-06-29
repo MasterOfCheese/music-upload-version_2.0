@@ -146,3 +146,120 @@ export const checkStorageQuota = async () => {
     return { used: 0, limit: 1000, remaining: 1000 }
   }
 }
+
+// Play tracking functions
+export const getUserFingerprint = async () => {
+  try {
+    // Get user IP
+    const ipResponse = await fetch('https://api.ipify.org?format=json')
+    const ipData = await ipResponse.json()
+    
+    // Create a simple fingerprint from user agent and screen info
+    const userAgent = navigator.userAgent
+    const fingerprint = `${ipData.ip}_${btoa(userAgent).slice(0, 20)}`
+    
+    return {
+      ip: ipData.ip,
+      userAgent,
+      fingerprint
+    }
+  } catch (error) {
+    console.error('Error getting user fingerprint:', error)
+    // Fallback to a random ID if IP detection fails
+    const randomId = Math.random().toString(36).substring(7)
+    return {
+      ip: randomId,
+      userAgent: navigator.userAgent,
+      fingerprint: randomId
+    }
+  }
+}
+
+export const checkIfUserPlayedTrack = async (trackId: string, userIp: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('track_plays')
+      .select('id')
+      .eq('track_id', trackId)
+      .eq('user_ip', userIp)
+      .gte('play_duration', 10)
+      .limit(1)
+
+    if (error) throw error
+    
+    return data && data.length > 0
+  } catch (error) {
+    console.error('Error checking if user played track:', error)
+    return false
+  }
+}
+
+export const recordTrackPlay = async (trackId: string, userIp: string, userAgent: string, playDuration: number) => {
+  try {
+    // Only record if played for at least 10 seconds
+    if (playDuration < 10) return
+
+    // Check if this IP already played this track for 10+ seconds
+    const alreadyPlayed = await checkIfUserPlayedTrack(trackId, userIp)
+    if (alreadyPlayed) {
+      console.log('User already counted for this track')
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('track_plays')
+      .insert([{
+        track_id: trackId,
+        user_ip: userIp,
+        user_agent: userAgent,
+        play_duration: Math.floor(playDuration),
+        played_at: new Date().toISOString()
+      }])
+      .select()
+
+    if (error) throw error
+    
+    console.log('Track play recorded successfully')
+    return data[0]
+  } catch (error) {
+    console.error('Error recording track play:', error)
+    throw error
+  }
+}
+
+export const getTrackPlayCount = async (trackId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('track_plays')
+      .select('user_ip')
+      .eq('track_id', trackId)
+      .gte('play_duration', 10)
+
+    if (error) throw error
+    
+    // Count unique IPs
+    const uniqueIPs = new Set(data?.map(play => play.user_ip) || [])
+    return uniqueIPs.size
+  } catch (error) {
+    console.error('Error getting track play count:', error)
+    return 0
+  }
+}
+
+export const getTotalUniqueUsers = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('track_plays')
+      .select('user_ip')
+      .gte('play_duration', 10)
+
+    if (error) throw error
+    
+    // Count unique IPs across all tracks
+    const uniqueIPs = new Set(data?.map(play => play.user_ip) || [])
+    return uniqueIPs.size
+  } catch (error) {
+    console.error('Error getting total unique users:', error)
+    return 0
+  }
+}

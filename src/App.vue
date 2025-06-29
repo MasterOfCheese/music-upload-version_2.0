@@ -328,7 +328,16 @@ import TrackItem from './components/TrackItem.vue'
 import TrackCard from './components/TrackCard.vue'
 import EnhancedMusicPlayer from './components/EnhancedMusicPlayer.vue'
 import UploadComponent from './components/UploadComponent.vue'
-import { supabase, getTracksFromDatabase, deleteTrackFromDatabase, deleteAudioFile, getAudioFileUrl } from './lib/supabase'
+import { 
+  supabase, 
+  getTracksFromDatabase, 
+  deleteTrackFromDatabase, 
+  deleteAudioFile, 
+  getAudioFileUrl,
+  getUserFingerprint,
+  recordTrackPlay,
+  getTotalUniqueUsers
+} from './lib/supabase'
 import type { Track, Notification, DatabaseTrack } from './types/Track'
 
 // State
@@ -353,10 +362,10 @@ const notifications = ref<Notification[]>([])
 const isLoading = ref(true)
 const isSupabaseConnected = ref(false)
 
-// User tracking
-const userIPs = ref<Set<string>>(new Set())
-const trackPlayCounts = ref<Map<string, number>>(new Map())
-const trackPlayTimes = ref<Map<string, number>>(new Map())
+// User tracking for play counts
+const userFingerprint = ref<{ ip: string; userAgent: string; fingerprint: string } | null>(null)
+const trackPlayStartTime = ref<Map<string, number>>(new Map())
+const totalUsers = ref(0)
 
 // Delete confirmation modal state
 const showDeleteModal = ref(false)
@@ -421,10 +430,6 @@ const searchSuggestions = computed(() => {
   return Array.from(suggestions).slice(0, 5)
 })
 
-const totalUsers = computed(() => {
-  return userIPs.value.size
-})
-
 const trendingTrack = computed(() => {
   if (tracks.value.length === 0) return null
   
@@ -442,53 +447,6 @@ const shuffleArray = <T>(array: T[]): T[] => {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
   return shuffled
-}
-
-const getUserIP = async () => {
-  try {
-    const response = await fetch('https://api.ipify.org?format=json')
-    const data = await response.json()
-    userIPs.value.add(data.ip)
-    localStorage.setItem('userIPs', JSON.stringify(Array.from(userIPs.value)))
-  } catch (error) {
-    // Fallback: use a random ID if IP detection fails
-    const randomId = Math.random().toString(36).substring(7)
-    userIPs.value.add(randomId)
-    localStorage.setItem('userIPs', JSON.stringify(Array.from(userIPs.value)))
-  }
-}
-
-const trackPlayTime = (trackId: string) => {
-  const startTime = Date.now()
-  
-  const checkPlayTime = () => {
-    if (currentTrack.value?.id === trackId && isPlaying.value) {
-      const playTime = (trackPlayTimes.value.get(trackId) || 0) + 100
-      trackPlayTimes.value.set(trackId, playTime)
-      
-      // If played for more than 10 seconds, count as a play
-      if (playTime >= 10000) {
-        const currentCount = trackPlayCounts.value.get(trackId) || 0
-        trackPlayCounts.value.set(trackId, currentCount + 1)
-        
-        // Update track play count
-        const track = tracks.value.find(t => t.id === trackId)
-        if (track) {
-          track.playCount = (track.playCount || 0) + 1
-        }
-        
-        // Reset play time for this session
-        trackPlayTimes.value.set(trackId, 0)
-        
-        // Save to localStorage
-        localStorage.setItem('trackPlayCounts', JSON.stringify(Array.from(trackPlayCounts.value)))
-      }
-      
-      setTimeout(checkPlayTime, 100)
-    }
-  }
-  
-  checkPlayTime()
 }
 
 const checkSupabaseConnection = async () => {
@@ -558,22 +516,6 @@ const saveTracksToLocalStorage = () => {
   }
 }
 
-const loadUserData = () => {
-  try {
-    const savedUserIPs = localStorage.getItem('userIPs')
-    if (savedUserIPs) {
-      userIPs.value = new Set(JSON.parse(savedUserIPs))
-    }
-    
-    const savedPlayCounts = localStorage.getItem('trackPlayCounts')
-    if (savedPlayCounts) {
-      trackPlayCounts.value = new Map(JSON.parse(savedPlayCounts))
-    }
-  } catch (error) {
-    console.error('Error loading user data:', error)
-  }
-}
-
 const loadTracks = async () => {
   isLoading.value = true
   
@@ -587,17 +529,14 @@ const loadTracks = async () => {
       const supabaseTracks = await loadTracksFromSupabase()
       allTracks = [...allTracks, ...supabaseTracks]
       showNotification('success', 'Kết nối Supabase thành công', `Đã tải ${supabaseTracks.length} bài hát từ cloud`)
+      
+      // Load total users count
+      totalUsers.value = await getTotalUniqueUsers()
     }
     
     // Load from localStorage (for local tracks)
     const localTracks = loadTracksFromLocalStorage()
     allTracks = [...allTracks, ...localTracks]
-    
-    // Apply play counts from localStorage
-    allTracks.forEach(track => {
-      const playCount = trackPlayCounts.value.get(track.id) || 0
-      track.playCount = Math.max(track.playCount || 0, playCount)
-    })
     
     tracks.value = allTracks
     
@@ -606,6 +545,68 @@ const loadTracks = async () => {
     showNotification('error', 'Lỗi tải dữ liệu', 'Không thể tải danh sách bài hát')
   } finally {
     isLoading.value = false
+  }
+}
+
+const startPlayTracking = (trackId: string) => {
+  if (!userFingerprint.value || !isSupabaseConnected.value) return
+  
+  // Record the start time
+  trackPlayStartTime.value.set(trackId, Date.now())
+  
+  console.log(`Started tracking play for track: ${trackId}`)
+}
+
+const stopPlayTracking = async (trackId: string) => {
+  if (!userFingerprint.value || !isSupabaseConnected.value) return
+  
+  const startTime = trackPlayStartTime.value.get(trackId)
+  if (!startTime) return
+  
+  const playDuration = (Date.now() - startTime) / 1000 // Convert to seconds
+  trackPlayStartTime.value.delete(trackId)
+  
+  console.log(`Play duration for track ${trackId}: ${playDuration} seconds`)
+  
+  // Only record if played for at least 10 seconds
+  if (playDuration >= 10) {
+    try {
+      await recordTrackPlay(
+        trackId, 
+        userFingerprint.value.ip, 
+        userFingerprint.value.userAgent, 
+        playDuration
+      )
+      
+      // Refresh track data to get updated play count
+      await refreshTrackPlayCount(trackId)
+      
+      // Update total users count
+      totalUsers.value = await getTotalUniqueUsers()
+      
+      showNotification('success', 'Đã tính view', 'Cảm ơn bạn đã nghe nhạc!')
+    } catch (error) {
+      console.error('Error recording play:', error)
+    }
+  }
+}
+
+const refreshTrackPlayCount = async (trackId: string) => {
+  if (!isSupabaseConnected.value) return
+  
+  try {
+    // Reload tracks to get updated play counts
+    const dbTracks = await getTracksFromDatabase()
+    const updatedTrack = dbTracks.find(t => t.id === trackId)
+    
+    if (updatedTrack) {
+      const trackIndex = tracks.value.findIndex(t => t.id === trackId)
+      if (trackIndex !== -1) {
+        tracks.value[trackIndex].playCount = updatedTrack.play_count || 0
+      }
+    }
+  } catch (error) {
+    console.error('Error refreshing track play count:', error)
   }
 }
 
@@ -637,12 +638,17 @@ const handleUploadSuccess = (newTrack: Track) => {
 }
 
 const playTrack = (track?: Track) => {
+  // Stop tracking previous track if any
+  if (currentTrack.value && currentTrack.value.id !== track?.id) {
+    stopPlayTracking(currentTrack.value.id)
+  }
+  
   if (track) {
     if (currentTrack.value?.id !== track.id) {
       currentTrack.value = track
       loadTrack(track)
       addToRecentlyPlayed(track.id)
-      trackPlayTime(track.id) // Start tracking play time
+      startPlayTracking(track.id) // Start tracking new track
     }
   }
   
@@ -657,6 +663,8 @@ const pauseTrack = () => {
     audio.value.pause()
     isPlaying.value = false
   }
+  
+  // Don't stop tracking on pause, only on track change or stop
 }
 
 const loadTrack = (track: Track) => {
@@ -669,6 +677,9 @@ const loadTrack = (track: Track) => {
 
 const nextTrack = () => {
   if (!currentTrack.value) return
+  
+  // Stop tracking current track
+  stopPlayTracking(currentTrack.value.id)
   
   const currentList = displayedTracks.value
   const currentIndex = currentList.findIndex(t => t.id === currentTrack.value!.id)
@@ -683,6 +694,9 @@ const nextTrack = () => {
 
 const previousTrack = () => {
   if (!currentTrack.value) return
+  
+  // Stop tracking current track
+  stopPlayTracking(currentTrack.value.id)
   
   const currentList = displayedTracks.value
   const currentIndex = currentList.findIndex(t => t.id === currentTrack.value!.id)
@@ -791,6 +805,8 @@ const confirmDelete = async () => {
     saveTracksToLocalStorage()
     
     if (currentTrack.value?.id === track.id) {
+      // Stop tracking if deleting current track
+      stopPlayTracking(track.id)
       currentTrack.value = null
       isPlaying.value = false
     }
@@ -861,9 +877,18 @@ const setupAudioEvents = () => {
   })
   
   audio.value.addEventListener('ended', () => {
+    // Stop tracking when track ends
+    if (currentTrack.value) {
+      stopPlayTracking(currentTrack.value.id)
+    }
+    
     if (repeatMode.value === 'one') {
       audio.value!.currentTime = 0
       audio.value!.play()
+      // Restart tracking for repeat
+      if (currentTrack.value) {
+        startPlayTracking(currentTrack.value.id)
+      }
     } else {
       nextTrack()
     }
@@ -897,8 +922,10 @@ onMounted(async () => {
   audio.value = new Audio()
   setupAudioEvents()
   loadPreferences()
-  loadUserData()
-  await getUserIP()
+  
+  // Get user fingerprint for play tracking
+  userFingerprint.value = await getUserFingerprint()
+  
   await loadTracks()
 })
 
@@ -915,4 +942,11 @@ watch(isDarkMode, (newValue) => {
 watch(tracks, () => {
   saveTracksToLocalStorage()
 }, { deep: true })
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+  if (currentTrack.value) {
+    stopPlayTracking(currentTrack.value.id)
+  }
+})
 </script>
