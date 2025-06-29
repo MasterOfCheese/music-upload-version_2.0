@@ -185,7 +185,10 @@ export const checkIfUserPlayedTrack = async (trackId: string, userIp: string) =>
       .gte('play_duration', 10)
       .limit(1)
 
-    if (error) throw error
+    if (error) {
+      console.error('Error checking if user played track:', error)
+      return false
+    }
     
     return data && data.length > 0
   } catch (error) {
@@ -197,7 +200,10 @@ export const checkIfUserPlayedTrack = async (trackId: string, userIp: string) =>
 export const recordTrackPlay = async (trackId: string, userIp: string, userAgent: string, playDuration: number) => {
   try {
     // Only record if played for at least 10 seconds
-    if (playDuration < 10) return
+    if (playDuration < 10) {
+      console.log(`Play duration ${playDuration}s is less than 10s, not recording`)
+      return
+    }
 
     // Check if this IP already played this track for 10+ seconds
     const alreadyPlayed = await checkIfUserPlayedTrack(trackId, userIp)
@@ -205,6 +211,8 @@ export const recordTrackPlay = async (trackId: string, userIp: string, userAgent
       console.log('User already counted for this track')
       return
     }
+
+    console.log(`Recording play for track ${trackId}, duration: ${playDuration}s`)
 
     const { data, error } = await supabase
       .from('track_plays')
@@ -217,12 +225,62 @@ export const recordTrackPlay = async (trackId: string, userIp: string, userAgent
       }])
       .select()
 
-    if (error) throw error
+    if (error) {
+      console.error('Error recording track play:', error)
+      throw error
+    }
     
-    console.log('Track play recorded successfully')
+    console.log('Track play recorded successfully:', data[0])
+    
+    // Manually update the play count in tracks table
+    await updateTrackPlayCount(trackId)
+    
     return data[0]
   } catch (error) {
     console.error('Error recording track play:', error)
+    throw error
+  }
+}
+
+// Manual function to update play count
+export const updateTrackPlayCount = async (trackId: string) => {
+  try {
+    // Get unique play count for this track
+    const { data: playData, error: playError } = await supabase
+      .from('track_plays')
+      .select('user_ip')
+      .eq('track_id', trackId)
+      .gte('play_duration', 10)
+
+    if (playError) {
+      console.error('Error getting play data:', playError)
+      return
+    }
+
+    // Count unique IPs
+    const uniqueIPs = new Set(playData?.map(play => play.user_ip) || [])
+    const playCount = uniqueIPs.size
+
+    console.log(`Updating play count for track ${trackId}: ${playCount} unique plays`)
+
+    // Update the tracks table
+    const { error: updateError } = await supabase
+      .from('tracks')
+      .update({ 
+        play_count: playCount,
+        last_played_at: new Date().toISOString()
+      })
+      .eq('id', trackId)
+
+    if (updateError) {
+      console.error('Error updating track play count:', updateError)
+      throw updateError
+    }
+
+    console.log(`Successfully updated play count for track ${trackId} to ${playCount}`)
+    
+  } catch (error) {
+    console.error('Error updating track play count:', error)
     throw error
   }
 }

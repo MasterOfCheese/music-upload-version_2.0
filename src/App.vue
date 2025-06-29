@@ -602,6 +602,7 @@ const refreshTrackPlayCount = async (trackId: string) => {
       const trackIndex = tracks.value.findIndex(t => t.id === trackId)
       if (trackIndex !== -1) {
         tracks.value[trackIndex].playCount = updatedTrack.play_count || 0
+        console.log(`Updated play count for track ${trackId}: ${updatedTrack.play_count}`)
       }
     }
   } catch (error) {
