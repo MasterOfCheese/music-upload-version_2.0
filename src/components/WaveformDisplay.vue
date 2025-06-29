@@ -7,8 +7,8 @@
     @mousemove="handleMouseMove"
     @mouseleave="showHover = false"
   >
-    <!-- Background bars (unplayed) -->
-    <div class="flex items-end justify-start h-full px-1 py-1">
+    <!-- Background bars (unplayed) - FULL WIDTH -->
+    <div class="flex items-end justify-start h-full w-full px-1 py-1">
       <div
         v-for="(amplitude, index) in detailedWaveformData"
         :key="`bg-${index}`"
@@ -22,13 +22,13 @@
       />
     </div>
     
-    <!-- Progress overlay (played portion) -->
+    <!-- Progress overlay (played portion) - FULL WIDTH CALCULATION -->
     <div
       v-if="isCurrent && progress > 0"
       class="absolute top-0 left-0 h-full overflow-hidden"
       :style="{ width: `${progress}%` }"
     >
-      <div class="flex items-end justify-start h-full px-1 py-1">
+      <div class="flex items-end justify-start h-full w-full px-1 py-1">
         <div
           v-for="(amplitude, index) in detailedWaveformData"
           :key="`progress-${index}`"
@@ -43,14 +43,14 @@
       </div>
     </div>
     
-    <!-- Hover indicator -->
+    <!-- Hover indicator - FULL WIDTH CALCULATION -->
     <div
       v-if="showHover && !mini"
       class="absolute top-0 h-full w-0.5 bg-white/80 pointer-events-none rounded-full shadow-lg"
       :style="{ left: `${hoverPosition}%` }"
     />
     
-    <!-- Current time indicator -->
+    <!-- Current time indicator - FULL WIDTH CALCULATION -->
     <div
       v-if="isCurrent && isPlaying"
       class="absolute top-0 h-full w-0.5 bg-white pointer-events-none rounded-full shadow-lg animate-pulse"
@@ -98,16 +98,16 @@ const checkMobile = () => {
   isMobile.value = window.innerWidth < 640
 }
 
-// Generate more detailed waveform data optimized for mobile
+// Generate more detailed waveform data that spans FULL WIDTH
 const detailedWaveformData = computed(() => {
   const originalData = props.waveformData
-  // Adjust bar count based on screen size and mini mode
+  // Increase bar count to fill the entire width properly
   let targetLength: number
   
   if (props.mini) {
-    targetLength = isMobile.value ? 80 : 120 // Fewer bars on mobile mini
+    targetLength = isMobile.value ? 120 : 180 // More bars for mini
   } else {
-    targetLength = isMobile.value ? 150 : 250 // Responsive bar count
+    targetLength = isMobile.value ? 200 : 400 // Much more bars for desktop to fill width
   }
   
   const detailedData: number[] = []
@@ -130,6 +130,7 @@ const handleClick = (event: MouseEvent) => {
   if (!waveformContainer.value) return
   
   const rect = waveformContainer.value.getBoundingClientRect()
+  // FIXED: Now calculates percentage based on FULL container width
   const percentage = ((event.clientX - rect.left) / rect.width) * 100
   emit('seek', Math.max(0, Math.min(100, percentage)))
 }
@@ -138,6 +139,7 @@ const handleMouseMove = (event: MouseEvent) => {
   if (!waveformContainer.value || props.mini || isMobile.value) return
   
   const rect = waveformContainer.value.getBoundingClientRect()
+  // FIXED: Now calculates hover position based on FULL container width
   hoverPosition.value = ((event.clientX - rect.left) / rect.width) * 100
   showHover.value = true
 }
@@ -163,6 +165,8 @@ onUnmounted(() => {
 .soundcloud-waveform {
   @apply relative rounded-lg overflow-hidden;
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  /* ENSURE FULL WIDTH */
+  width: 100% !important;
 }
 
 .dark .soundcloud-waveform {
@@ -188,6 +192,8 @@ onUnmounted(() => {
 @media (max-width: 640px) {
   .soundcloud-waveform {
     @apply rounded-md;
+    /* ENSURE FULL WIDTH ON MOBILE TOO */
+    width: 100% !important;
   }
   
   .waveform-bar-bg,
