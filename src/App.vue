@@ -19,14 +19,15 @@
           <!-- Search Bar -->
           <div class="flex-1 max-w-md mx-4 sm:mx-8">
             <div class="relative">
-              <MagnifyingGlassIcon class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-dark-400" />
+              <!-- Search icon - hidden on mobile when focused -->
+              <MagnifyingGlassIcon class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-dark-400 sm:block" :class="{ 'hidden': isMobileSearchFocused }" />
               <input
                 v-model="searchQuery"
                 type="text"
-                placeholder="Tìm kiếm bài hát, nghệ sĩ..."
+                :placeholder="isMobile ? 'Tìm kiếm' : 'Tìm kiếm bài hát, nghệ sĩ...'"
                 class="search-input"
-                @focus="showSearchSuggestions = true"
-                @blur="hideSearchSuggestions"
+                @focus="handleSearchFocus"
+                @blur="handleSearchBlur"
               />
               
               <!-- Search Suggestions -->
@@ -44,16 +45,16 @@
           <!-- Actions -->
           <div class="flex items-center space-x-4">
             <!-- Theme Toggle - Made 2x larger -->
-            <Button variant="icon" @click="toggleTheme" title="Chuyển đổi theme" class="w-16 h-16">
+            <button @click="toggleTheme" title="Chuyển đổi theme" class="btn-icon w-16 h-16">
               <SunIcon v-if="isDarkMode" class="w-8 h-8" />
               <MoonIcon v-else class="w-8 h-8" />
-            </Button>
+            </button>
             
             <!-- Upload Button -->
-            <Button @click="toggleUploadModal">
+            <button @click="toggleUploadModal" class="btn btn-primary">
               <span class="hidden sm:inline">Upload</span>
               <span class="sm:hidden">Upload</span>
-            </Button>
+            </button>
           </div>
         </div>
       </div>
@@ -91,15 +92,14 @@
       <div v-if="!isLoading" class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <div class="flex items-center space-x-4">
           <!-- Shuffle Button - Fixed styling with flex display -->
-          <Button 
-            variant="ghost"
+          <button 
             @click="toggleShuffle" 
             :class="{ 'text-soundcloud-orange': isShuffled }"
-            class="flex items-center space-x-2"
+            class="btn bg-transparent text-gray-600 dark:text-dark-600 hover:bg-gray-100 dark:hover:bg-dark-200 focus:ring-gray-500 px-4 py-2 transform hover:scale-105 active:scale-95 flex items-center space-x-2"
           >
             <ArrowsRightLeftIcon class="w-5 h-5" />
             <span>Shuffle</span>
-          </Button>
+          </button>
           
           <select v-model="sortBy" class="input-field">
             <option value="newest">Mới nhất</option>
@@ -113,94 +113,99 @@
         
         <div class="flex items-center space-x-4">
           <!-- View Mode Buttons - Made 2x larger -->
-          <Button
-            variant="icon"
+          <button
             @click="viewMode = 'grid'" 
             :class="{ 'text-soundcloud-orange': viewMode === 'grid' }"
-            class="w-16 h-16"
+            class="btn-icon w-16 h-16"
           >
             <Squares2X2Icon class="w-8 h-8" />
-          </Button>
-          <Button
-            variant="icon"
+          </button>
+          <button
             @click="viewMode = 'list'" 
             :class="{ 'text-soundcloud-orange': viewMode === 'list' }"
-            class="w-16 h-16"
+            class="btn-icon w-16 h-16"
           >
             <ListBulletIcon class="w-8 h-8" />
-          </Button>
+          </button>
         </div>
       </div>
 
       <!-- Upload Modal -->
-      <Modal
-        :show="showUploadModal"
-        title="Upload Bài Hát"
-        @close="toggleUploadModal"
-      >
-        <UploadComponent @upload-success="handleUploadSuccess" />
-      </Modal>
+      <Teleport to="body">
+        <div v-if="showUploadModal" 
+             class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div class="glass-card max-w-md w-full p-6 animate-scale-in max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+              <h2 class="text-xl font-semibold gradient-text">Upload Bài Hát</h2>
+              <button @click="toggleUploadModal" class="btn-icon text-gray-400 hover:text-gray-600">
+                <XMarkIcon class="w-6 h-6" />
+              </button>
+            </div>
+            <UploadComponent @upload-success="handleUploadSuccess" />
+          </div>
+        </div>
+      </Teleport>
 
       <!-- Delete Confirmation Modal -->
-      <Modal
-        :show="showDeleteModal"
-        title="Xác nhận xóa bài hát"
-        :close-on-backdrop="false"
-        @close="cancelDelete"
-      >
-        <div class="text-center mb-6">
-          <div class="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <ExclamationTriangleIcon class="w-8 h-8 text-red-600 dark:text-red-400" />
-          </div>
-          <p class="text-white mb-4 font-medium">
-            Bạn đang muốn xóa bài hát: <br>
-            <span class="font-semibold text-soundcloud-orange">{{ trackToDelete?.title }}</span>
-          </p>
-          <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
-            <p class="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
-              <strong>Bảo mật:</strong> Để xóa bài hát này, bạn phải nhập Key-check là ngày tháng năm sinh của Phương Nam
-            </p>
+      <Teleport to="body">
+        <div v-if="showDeleteModal" 
+             class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div class="glass-card max-w-md w-full p-6 animate-scale-in">
+            <div class="text-center mb-6">
+              <div class="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                <ExclamationTriangleIcon class="w-8 h-8 text-red-600 dark:text-red-400" />
+              </div>
+              <h2 class="text-xl font-semibold text-white mb-2">Xác nhận xóa bài hát</h2>
+              <p class="text-white mb-4 font-medium">
+                Bạn đang muốn xóa bài hát: <br>
+                <span class="font-semibold text-soundcloud-orange">{{ trackToDelete?.title }}</span>
+              </p>
+              <div class="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
+                <p class="text-sm text-yellow-800 dark:text-yellow-200 font-medium">
+                  <strong>Bảo mật:</strong> Để xóa bài hát này, bạn phải nhập Key-check là ngày tháng năm sinh của Phương Nam
+                </p>
+              </div>
+            </div>
+            
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-white mb-2">
+                  Nhập Key-check (ddmmyyyy):
+                </label>
+                <input
+                  v-model="deleteKeyCheck"
+                  type="text"
+                  placeholder="Nhập ngày tháng năm sinh..."
+                  class="input-field text-white placeholder-white/70"
+                  :class="{ 'border-red-500 focus:ring-red-500': deleteKeyError }"
+                  @keyup.enter="confirmDelete"
+                  @input="deleteKeyError = false"
+                />
+                <p v-if="deleteKeyError" class="text-red-400 text-sm mt-1 font-medium">
+                  Key-check không đúng! Vui lòng thử lại.
+                </p>
+              </div>
+              
+              <div class="flex space-x-3">
+                <button
+                  @click="cancelDelete"
+                  class="flex-1 btn btn-secondary"
+                  :disabled="isDeleting"
+                >
+                  Hủy
+                </button>
+                <button
+                  @click="confirmDelete"
+                  :disabled="!deleteKeyCheck || isDeleting"
+                  class="flex-1 btn bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {{ isDeleting ? 'Đang xóa...' : 'Xóa bài hát' }}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-        
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-white mb-2">
-              Nhập Key-check (ddmmyyyy):
-            </label>
-            <input
-              v-model="deleteKeyCheck"
-              type="text"
-              placeholder="Nhập ngày tháng năm sinh..."
-              class="input-field text-white placeholder-white/70"
-              :class="{ 'border-red-500 focus:ring-red-500': deleteKeyError }"
-              @keyup.enter="confirmDelete"
-              @input="deleteKeyError = false"
-            />
-            <p v-if="deleteKeyError" class="text-red-400 text-sm mt-1 font-medium">
-              Key-check không đúng! Vui lòng thử lại.
-            </p>
-          </div>
-          
-          <div class="flex space-x-3">
-            <Button
-              variant="secondary"
-              @click="cancelDelete"
-              :disabled="isDeleting"
-              class="flex-1"
-            >
-              Hủy
-            </Button>
-            <Button
-              @click="confirmDelete"
-              :disabled="!deleteKeyCheck || isDeleting"
-              class="flex-1 bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {{ isDeleting ? 'Đang xóa...' : 'Xóa bài hát' }}
-            </Button>
-          </div>
-        </div>
-      </Modal>
+      </Teleport>
 
       <!-- Track List/Grid -->
       <div v-if="!isLoading">
@@ -210,9 +215,9 @@
           </div>
           <h3 class="text-xl font-medium text-gray-600 dark:text-dark-600 mb-2">Chưa có bài hát nào</h3>
           <p class="text-gray-500 dark:text-dark-500 mb-6">Upload bài hát đầu tiên để bắt đầu!</p>
-          <Button @click="toggleUploadModal">
+          <button @click="toggleUploadModal" class="btn btn-primary">
             Upload Bài Hát
-          </Button>
+          </button>
         </div>
         
         <div v-else>
@@ -284,10 +289,27 @@
     />
 
     <!-- Toast Notifications -->
-    <Notification
-      :notifications="notifications"
-      @remove="removeNotification"
-    />
+    <div class="fixed top-4 right-4 z-50 space-y-2">
+      <TransitionGroup name="notification">
+        <div v-for="notification in notifications" :key="notification.id"
+             class="glass-card p-4 max-w-sm animate-slide-up">
+          <div class="flex items-center space-x-3">
+            <div class="flex-shrink-0">
+              <CheckCircleIcon v-if="notification.type === 'success'" class="w-6 h-6 text-green-500" />
+              <ExclamationTriangleIcon v-else-if="notification.type === 'warning'" class="w-6 h-6 text-yellow-500" />
+              <XCircleIcon v-else class="w-6 h-6 text-red-500" />
+            </div>
+            <div class="flex-1">
+              <p class="text-sm font-medium text-gray-900 dark:text-dark-900">{{ notification.title }}</p>
+              <p class="text-xs text-gray-600 dark:text-dark-600">{{ notification.message }}</p>
+            </div>
+            <button @click="removeNotification(notification.id)" class="btn-icon">
+              <XMarkIcon class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </TransitionGroup>
+    </div>
   </div>
 </template>
 
@@ -295,53 +317,41 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { 
   MagnifyingGlassIcon, 
+  XMarkIcon, 
   MusicalNoteIcon,
   SunIcon,
   MoonIcon,
   ArrowsRightLeftIcon,
   Squares2X2Icon,
   ListBulletIcon,
-  ExclamationTriangleIcon
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  XCircleIcon
 } from '@heroicons/vue/24/outline'
 import TrackItem from './components/TrackItem.vue'
 import TrackCard from './components/TrackCard.vue'
 import EnhancedMusicPlayer from './components/EnhancedMusicPlayer.vue'
 import UploadComponent from './components/UploadComponent.vue'
-import Button from './components/ui/Button.vue'
-import Modal from './components/ui/Modal.vue'
-import Notification from './components/ui/Notification.vue'
-import { useAudioPlayer } from './composables/useAudioPlayer'
-import { useNotifications } from './composables/useNotifications'
-import { usePlayTracking } from './composables/usePlayTracking'
 import { 
   supabase, 
   getTracksFromDatabase, 
   deleteTrackFromDatabase, 
   deleteAudioFile, 
   getAudioFileUrl,
-  getTotalUniqueUsers
+  getUserFingerprint,
+  recordTrackPlay,
+  getTotalUniqueUsers,
+  updateTrackPlayCount
 } from './lib/supabase'
-import type { Track } from './types/Track'
-
-// Composables
-const { 
-  currentTrack, 
-  isPlaying, 
-  currentTime, 
-  duration, 
-  volume, 
-  loadTrack, 
-  play, 
-  pause, 
-  seekTo: audioSeekTo, 
-  setVolume 
-} = useAudioPlayer()
-
-const { notifications, showNotification, removeNotification } = useNotifications()
-const { initializeFingerprint, startPlayTracking, stopPlayTracking } = usePlayTracking()
+import type { Track, Notification } from './types/Track'
 
 // State
 const tracks = ref<Track[]>([])
+const currentTrack = ref<Track | null>(null)
+const isPlaying = ref(false)
+const currentTime = ref(0)
+const duration = ref(0)
+const volume = ref(0.8)
 const repeatMode = ref<'off' | 'one' | 'all'>('off')
 const isShuffled = ref(false)
 const searchQuery = ref('')
@@ -350,10 +360,20 @@ const showSearchSuggestions = ref(false)
 const isDarkMode = ref(false)
 const viewMode = ref<'list' | 'grid'>('list')
 const sortBy = ref('newest')
+const audio = ref<HTMLAudioElement | null>(null)
 const favoriteTracks = ref<string[]>([])
 const recentlyPlayed = ref<string[]>([])
+const notifications = ref<Notification[]>([])
 const isLoading = ref(true)
 const isSupabaseConnected = ref(false)
+
+// Mobile search state
+const isMobile = ref(false)
+const isMobileSearchFocused = ref(false)
+
+// User tracking for play counts
+const userFingerprint = ref<{ ip: string; userAgent: string; fingerprint: string } | null>(null)
+const trackPlayStartTime = ref<Map<string, number>>(new Map())
 const totalUsers = ref(0)
 
 // Delete confirmation modal state
@@ -362,6 +382,24 @@ const trackToDelete = ref<Track | null>(null)
 const deleteKeyCheck = ref('')
 const deleteKeyError = ref(false)
 const isDeleting = ref(false)
+
+// Check if mobile
+const checkMobile = () => {
+  isMobile.value = window.innerWidth < 640
+}
+
+// Mobile search handlers
+const handleSearchFocus = () => {
+  if (isMobile.value) {
+    isMobileSearchFocused.value = true
+  }
+  showSearchSuggestions.value = true
+}
+
+const handleSearchBlur = () => {
+  isMobileSearchFocused.value = false
+  hideSearchSuggestions()
+}
 
 // Computed
 const filteredTracks = computed(() => {
@@ -498,7 +536,7 @@ const loadTracksFromLocalStorage = (): Track[] => {
 
 const saveTracksToLocalStorage = () => {
   try {
-    const localTracks = tracks.value.filter(track => !track.fileName)
+    const localTracks = tracks.value.filter(track => !track.fileName) // Only save local tracks
     localStorage.setItem('tracks', JSON.stringify(localTracks))
   } catch (error) {
     console.error('Error saving tracks to localStorage:', error)
@@ -514,13 +552,16 @@ const loadTracks = async () => {
     let allTracks: Track[] = []
     
     if (isSupabaseConnected.value) {
+      // Load from Supabase
       const supabaseTracks = await loadTracksFromSupabase()
       allTracks = [...allTracks, ...supabaseTracks]
       showNotification('success', 'Kết nối Supabase thành công', `Đã tải ${supabaseTracks.length} bài hát từ cloud`)
       
+      // Load total users count
       totalUsers.value = await getTotalUniqueUsers()
     }
     
+    // Load from localStorage (for local tracks)
     const localTracks = loadTracksFromLocalStorage()
     allTracks = [...allTracks, ...localTracks]
     
@@ -534,12 +575,91 @@ const loadTracks = async () => {
   }
 }
 
-const playTrack = async (track?: Track) => {
-  if (currentTrack.value && currentTrack.value.id !== track?.id) {
-    const newPlayCount = await stopPlayTracking(currentTrack.value.id)
-    if (newPlayCount !== null) {
-      updateTrackPlayCount(currentTrack.value.id, newPlayCount)
+const startPlayTracking = (trackId: string) => {
+  if (!userFingerprint.value || !isSupabaseConnected.value) return
+  
+  // Record the start time
+  trackPlayStartTime.value.set(trackId, Date.now())
+  
+  console.log(`Started tracking play for track: ${trackId}`)
+}
+
+const stopPlayTracking = async (trackId: string) => {
+  if (!userFingerprint.value || !isSupabaseConnected.value) return
+  
+  const startTime = trackPlayStartTime.value.get(trackId)
+  if (!startTime) return
+  
+  const playDuration = (Date.now() - startTime) / 1000 // Convert to seconds
+  trackPlayStartTime.value.delete(trackId)
+  
+  console.log(`Play duration for track ${trackId}: ${playDuration} seconds`)
+  
+  // Only record if played for at least 10 seconds
+  if (playDuration >= 10) {
+    try {
+      const result = await recordTrackPlay(
+        trackId, 
+        userFingerprint.value.ip, 
+        userFingerprint.value.userAgent, 
+        playDuration
+      )
+      
+      if (result) {
+        // Update the track in our local state immediately
+        const trackIndex = tracks.value.findIndex(t => t.id === trackId)
+        if (trackIndex !== -1) {
+          tracks.value[trackIndex].playCount = result.newPlayCount
+          // Force reactivity
+          tracks.value = [...tracks.value]
+          
+          console.log(`UI updated: Track ${trackId} now has ${result.newPlayCount} plays`)
+          
+          // Show notification
+          showNotification('success', 'View đã được cộng!', `+1 view cho "${tracks.value[trackIndex].title}"`)
+        }
+        
+        // Update total users count
+        totalUsers.value = await getTotalUniqueUsers()
+      }
+      
+    } catch (error) {
+      console.error('Error recording play:', error)
     }
+  }
+}
+
+const toggleTheme = () => {
+  isDarkMode.value = !isDarkMode.value
+  localStorage.setItem('darkMode', isDarkMode.value.toString())
+}
+
+const toggleUploadModal = () => {
+  showUploadModal.value = !showUploadModal.value
+}
+
+const hideSearchSuggestions = () => {
+  setTimeout(() => {
+    showSearchSuggestions.value = false
+  }, 200)
+}
+
+const handleUploadSuccess = (newTrack: Track) => {
+  tracks.value.unshift(newTrack)
+  showUploadModal.value = false
+  
+  // Save to localStorage if it's a local track
+  if (!newTrack.fileName) {
+    saveTracksToLocalStorage()
+  }
+  
+  showNotification('success', 'Upload thành công', `${newTrack.title} đã được thêm!`)
+}
+
+const playTrack = (track?: Track) => {
+  // Stop tracking previous track if any
+  if (currentTrack.value && currentTrack.value.id !== track?.id) {
+    stopPlayTracking(currentTrack.value.id)
   }
   
   if (track) {
@@ -547,24 +667,38 @@ const playTrack = async (track?: Track) => {
       currentTrack.value = track
       loadTrack(track)
       addToRecentlyPlayed(track.id)
-      startPlayTracking(track.id)
+      startPlayTracking(track.id) // Start tracking new track
     }
   }
   
-  play()
+  if (audio.value) {
+    audio.value.play()
+    isPlaying.value = true
+  }
 }
 
 const pauseTrack = () => {
-  pause()
+  if (audio.value) {
+    audio.value.pause()
+    isPlaying.value = false
+  }
+  
+  // Don't stop tracking on pause, only on track change or stop
 }
 
-const nextTrack = async () => {
+const loadTrack = (track: Track) => {
+  if (audio.value) {
+    audio.value.src = track.url
+    audio.value.volume = volume.value
+    audio.value.load()
+  }
+}
+
+const nextTrack = () => {
   if (!currentTrack.value) return
   
-  const newPlayCount = await stopPlayTracking(currentTrack.value.id)
-  if (newPlayCount !== null) {
-    updateTrackPlayCount(currentTrack.value.id, newPlayCount)
-  }
+  // Stop tracking current track
+  stopPlayTracking(currentTrack.value.id)
   
   const currentList = displayedTracks.value
   const currentIndex = currentList.findIndex(t => t.id === currentTrack.value!.id)
@@ -577,13 +711,11 @@ const nextTrack = async () => {
   }
 }
 
-const previousTrack = async () => {
+const previousTrack = () => {
   if (!currentTrack.value) return
   
-  const newPlayCount = await stopPlayTracking(currentTrack.value.id)
-  if (newPlayCount !== null) {
-    updateTrackPlayCount(currentTrack.value.id, newPlayCount)
-  }
+  // Stop tracking current track
+  stopPlayTracking(currentTrack.value.id)
   
   const currentList = displayedTracks.value
   const currentIndex = currentList.findIndex(t => t.id === currentTrack.value!.id)
@@ -597,7 +729,18 @@ const previousTrack = async () => {
 }
 
 const seekTo = (time: number) => {
-  audioSeekTo(time)
+  if (audio.value) {
+    audio.value.currentTime = time
+    currentTime.value = time
+  }
+}
+
+const setVolume = (newVolume: number) => {
+  volume.value = newVolume
+  if (audio.value) {
+    audio.value.volume = newVolume
+  }
+  localStorage.setItem('volume', newVolume.toString())
 }
 
 const toggleRepeatMode = () => {
@@ -635,41 +778,7 @@ const shareTrack = (track: Track) => {
   }
 }
 
-const updateTrackPlayCount = (trackId: string, newCount: number) => {
-  const trackIndex = tracks.value.findIndex(t => t.id === trackId)
-  if (trackIndex !== -1) {
-    tracks.value[trackIndex].playCount = newCount
-    tracks.value = [...tracks.value]
-    showNotification('success', 'View đã được cộng!', `+1 view cho "${tracks.value[trackIndex].title}"`)
-  }
-}
-
-const toggleTheme = () => {
-  isDarkMode.value = !isDarkMode.value
-  localStorage.setItem('darkMode', isDarkMode.value.toString())
-}
-
-const toggleUploadModal = () => {
-  showUploadModal.value = !showUploadModal.value
-}
-
-const hideSearchSuggestions = () => {
-  setTimeout(() => {
-    showSearchSuggestions.value = false
-  }, 200)
-}
-
-const handleUploadSuccess = (newTrack: Track) => {
-  tracks.value.unshift(newTrack)
-  showUploadModal.value = false
-  
-  if (!newTrack.fileName) {
-    saveTracksToLocalStorage()
-  }
-  
-  showNotification('success', 'Upload thành công', `${newTrack.title} đã được thêm!`)
-}
-
+// Delete confirmation methods
 const showDeleteConfirmation = (trackId: string) => {
   const track = tracks.value.find(t => t.id === trackId)
   if (!track) return
@@ -691,6 +800,7 @@ const cancelDelete = () => {
 const confirmDelete = async () => {
   if (!trackToDelete.value) return
   
+  // Check key-check (Phương Nam's birthday: 24082003)
   if (deleteKeyCheck.value !== '24082003') {
     deleteKeyError.value = true
     return
@@ -702,15 +812,20 @@ const confirmDelete = async () => {
     const track = trackToDelete.value
     
     if (track.fileName && isSupabaseConnected.value) {
+      // Delete from Supabase
       await deleteAudioFile(track.fileName)
       await deleteTrackFromDatabase(track.id)
     }
     
+    // Remove from local state
     tracks.value = tracks.value.filter(t => t.id !== track.id)
+    
+    // Update localStorage for local tracks
     saveTracksToLocalStorage()
     
     if (currentTrack.value?.id === track.id) {
-      await stopPlayTracking(track.id)
+      // Stop tracking if deleting current track
+      stopPlayTracking(track.id)
       currentTrack.value = null
       isPlaying.value = false
     }
@@ -735,6 +850,59 @@ const addToRecentlyPlayed = (trackId: string) => {
   localStorage.setItem('recentlyPlayed', JSON.stringify(recentlyPlayed.value))
 }
 
+const showNotification = (type: 'success' | 'warning' | 'error', title: string, message: string) => {
+  const notification: Notification = {
+    id: Date.now().toString(),
+    type,
+    title,
+    message
+  }
+  notifications.value.push(notification)
+  
+  setTimeout(() => {
+    removeNotification(notification.id)
+  }, 5000)
+}
+
+const removeNotification = (id: string) => {
+  const index = notifications.value.findIndex(n => n.id === id)
+  if (index > -1) {
+    notifications.value.splice(index, 1)
+  }
+}
+
+// Audio event handlers
+const setupAudioEvents = () => {
+  if (!audio.value) return
+  
+  audio.value.addEventListener('timeupdate', () => {
+    currentTime.value = audio.value!.currentTime
+  })
+  
+  audio.value.addEventListener('loadedmetadata', () => {
+    duration.value = audio.value!.duration
+  })
+  
+  audio.value.addEventListener('ended', () => {
+    // Stop tracking when track ends
+    if (currentTrack.value) {
+      stopPlayTracking(currentTrack.value.id)
+    }
+    
+    if (repeatMode.value === 'one') {
+      audio.value!.currentTime = 0
+      audio.value!.play()
+      // Restart tracking for repeat
+      if (currentTrack.value) {
+        startPlayTracking(currentTrack.value.id)
+      }
+    } else {
+      nextTrack()
+    }
+  })
+}
+
+// Load saved preferences
 const loadPreferences = () => {
   const savedDarkMode = localStorage.getItem('darkMode')
   if (savedDarkMode) {
@@ -743,7 +911,7 @@ const loadPreferences = () => {
   
   const savedVolume = localStorage.getItem('volume')
   if (savedVolume) {
-    setVolume(parseFloat(savedVolume))
+    volume.value = parseFloat(savedVolume)
   }
   
   const savedFavorites = localStorage.getItem('favorites')
@@ -758,11 +926,21 @@ const loadPreferences = () => {
 }
 
 onMounted(async () => {
+  audio.value = new Audio()
+  setupAudioEvents()
   loadPreferences()
-  await initializeFingerprint()
+  checkMobile()
+  
+  // Get user fingerprint for play tracking
+  userFingerprint.value = await getUserFingerprint()
+  
   await loadTracks()
+  
+  // Listen for window resize
+  window.addEventListener('resize', checkMobile)
 })
 
+// Watch for theme changes
 watch(isDarkMode, (newValue) => {
   if (newValue) {
     document.documentElement.classList.add('dark')
@@ -771,13 +949,15 @@ watch(isDarkMode, (newValue) => {
   }
 })
 
+// Watch for tracks changes to save to localStorage
 watch(tracks, () => {
   saveTracksToLocalStorage()
 }, { deep: true })
 
-window.addEventListener('beforeunload', async () => {
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
   if (currentTrack.value) {
-    await stopPlayTracking(currentTrack.value.id)
+    stopPlayTracking(currentTrack.value.id)
   }
 })
 </script>
