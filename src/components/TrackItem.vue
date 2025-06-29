@@ -2,13 +2,13 @@
   <div class="card track-item">
     <div class="flex items-center space-x-3 sm:space-x-4">
       <!-- Play Button -->
-      <button
+      <Button
         @click="togglePlay"
         class="flex-shrink-0 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-soundcloud-orange to-soundcloud-orange-light text-white rounded-full flex items-center justify-center hover:shadow-glow transition-all duration-200 transform hover:scale-110"
       >
         <PlayIcon v-if="!isPlaying" class="w-5 h-5 sm:w-6 sm:h-6 ml-0.5" />
         <PauseIcon v-else class="w-5 h-5 sm:w-6 sm:h-6" />
-      </button>
+      </Button>
 
       <!-- Track Info -->
       <div class="flex-1 min-w-0">
@@ -31,29 +31,15 @@
               </div>
               
               <!-- Mobile Action Buttons -->
-              <div class="flex items-center space-x-1 flex-shrink-0">
-                <button
-                  @click="$emit('toggle-favorite', track.id)"
-                  class="btn-icon p-2"
-                  :class="isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'"
-                >
-                  <HeartIcon :class="isFavorite ? 'fill-current' : ''" class="w-4 h-4" />
-                </button>
-                
-                <button
-                  @click="$emit('share', track)"
-                  class="btn-icon p-2 text-gray-400 hover:text-blue-500"
-                >
-                  <ShareIcon class="w-4 h-4" />
-                </button>
-                
-                <button
-                  @click="$emit('delete', track.id)"
-                  class="btn-icon p-2 text-gray-400 hover:text-red-500"
-                >
-                  <TrashIcon class="w-4 h-4" />
-                </button>
-              </div>
+              <TrackActions
+                :track="track"
+                :track-id="track.id"
+                :is-favorite="isFavorite"
+                @share="$emit('share', track)"
+                @delete="$emit('delete', track.id)"
+                @toggle-favorite="$emit('toggle-favorite', track.id)"
+                class="flex-shrink-0"
+              />
             </div>
           </div>
         </div>
@@ -72,37 +58,25 @@
               <span class="text-sm text-gray-400 dark:text-dark-400">{{ formatDuration(track.duration) }}</span>
               
               <!-- Desktop Action Buttons -->
-              <button
-                @click="$emit('toggle-favorite', track.id)"
-                class="btn-icon"
-                :class="isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'"
-              >
-                <HeartIcon :class="isFavorite ? 'fill-current' : ''" class="w-5 h-5" />
-              </button>
-              
-              <button
-                @click="$emit('share', track)"
-                class="btn-icon text-gray-400 hover:text-blue-500"
-              >
-                <ShareIcon class="w-5 h-5" />
-              </button>
-              
-              <button
-                @click="$emit('delete', track.id)"
-                class="btn-icon text-gray-400 hover:text-red-500"
-              >
-                <TrashIcon class="w-5 h-5" />
-              </button>
+              <TrackActions
+                :track="track"
+                :track-id="track.id"
+                :is-favorite="isFavorite"
+                @share="$emit('share', track)"
+                @delete="$emit('delete', track.id)"
+                @toggle-favorite="$emit('toggle-favorite', track.id)"
+              />
             </div>
           </div>
         </div>
 
-        <!-- Waveform -->
+        <!-- SoundCloud Waveform -->
         <div class="relative">
-          <WaveformDisplay
+          <SoundCloudWaveform
             :waveform-data="track.waveformData"
             :is-current="isCurrent"
             :progress="isCurrent ? (currentTime / duration) * 100 : 0"
+            :is-playing="isPlaying && isCurrent"
             @seek="onSeek"
           />
         </div>
@@ -112,8 +86,11 @@
 </template>
 
 <script setup lang="ts">
-import { PlayIcon, PauseIcon, TrashIcon, HeartIcon, ShareIcon } from '@heroicons/vue/24/solid'
-import WaveformDisplay from './WaveformDisplay.vue'
+import { PlayIcon, PauseIcon } from '@heroicons/vue/24/solid'
+import SoundCloudWaveform from './waveform/SoundCloudWaveform.vue'
+import TrackActions from './track/TrackActions.vue'
+import Button from './ui/Button.vue'
+import { formatDuration } from '../utils/formatters'
 import type { Track } from '../types/Track'
 
 interface Props {
@@ -154,11 +131,5 @@ const onSeek = (percentage: number) => {
     const time = (percentage / 100) * props.duration
     emit('seek', time)
   }
-}
-
-const formatDuration = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 </script>

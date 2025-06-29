@@ -12,65 +12,29 @@
             <h4 class="text-sm font-semibold text-gray-900 dark:text-dark-900 truncate">{{ track.title }}</h4>
             <p class="text-xs text-gray-500 dark:text-dark-500 truncate">{{ track.artist }}</p>
           </div>
-          <div class="flex items-center space-x-2">
-            <button
-              @click="$emit('toggle-favorite', track.id)"
-              class="btn-icon"
-              :class="isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'"
-            >
-              <HeartIcon :class="isFavorite ? 'fill-current' : ''" class="w-5 h-5" />
-            </button>
-            <button
-              @click="$emit('share', track)"
-              class="btn-icon text-gray-400 hover:text-blue-500"
-            >
-              <ShareIcon class="w-5 h-5" />
-            </button>
-          </div>
+          <TrackActions
+            :track="track"
+            :track-id="track.id"
+            :is-favorite="isFavorite"
+            @share="$emit('share', track)"
+            @toggle-favorite="$emit('toggle-favorite', track.id)"
+            class="hidden sm:flex"
+          />
         </div>
 
         <!-- Controls -->
         <div class="flex flex-col items-center space-y-2 mx-8">
-          <div class="flex items-center space-x-4">
-            <button
-              @click="$emit('toggle-shuffle')"
-              class="btn-icon transition-colors duration-200"
-              :class="isShuffled ? 'text-soundcloud-orange' : 'text-gray-600 dark:text-dark-600 hover:text-gray-900 dark:hover:text-dark-900'"
-            >
-              <ArrowsRightLeftIcon class="w-5 h-5" />
-            </button>
-            
-            <button
-              @click="$emit('previous')"
-              class="btn-icon text-gray-600 dark:text-dark-600 hover:text-gray-900 dark:hover:text-dark-900"
-            >
-              <BackwardIcon class="w-6 h-6" />
-            </button>
-            
-            <button
-              @click="togglePlay"
-              class="w-12 h-12 bg-gradient-to-br from-soundcloud-orange to-soundcloud-orange-light text-white rounded-full flex items-center justify-center hover:shadow-glow transition-all duration-200 transform hover:scale-110"
-            >
-              <PlayIcon v-if="!isPlaying" class="w-6 h-6 ml-1" />
-              <PauseIcon v-else class="w-6 h-6" />
-            </button>
-            
-            <button
-              @click="$emit('next')"
-              class="btn-icon text-gray-600 dark:text-dark-600 hover:text-gray-900 dark:hover:text-dark-900"
-            >
-              <ForwardIcon class="w-6 h-6" />
-            </button>
-            
-            <button
-              @click="$emit('toggle-repeat')"
-              class="btn-icon transition-colors duration-200 relative"
-              :class="repeatMode !== 'off' ? 'text-soundcloud-orange' : 'text-gray-600 dark:text-dark-600 hover:text-gray-900 dark:hover:text-dark-900'"
-            >
-              <ArrowPathIcon class="w-5 h-5" />
-              <span v-if="repeatMode === 'one'" class="absolute -top-1 -right-1 w-3 h-3 bg-soundcloud-orange text-white text-xs rounded-full flex items-center justify-center font-bold">1</span>
-            </button>
-          </div>
+          <PlayerControls
+            :is-playing="isPlaying"
+            :repeat-mode="repeatMode"
+            :is-shuffled="isShuffled"
+            @play="$emit('play')"
+            @pause="$emit('pause')"
+            @next="$emit('next')"
+            @previous="$emit('previous')"
+            @toggle-repeat="$emit('toggle-repeat')"
+            @toggle-shuffle="$emit('toggle-shuffle')"
+          />
           
           <!-- Progress Bar -->
           <div class="flex items-center space-x-3 w-96">
@@ -88,18 +52,10 @@
 
         <!-- Volume & Settings -->
         <div class="flex items-center space-x-4 flex-1 justify-end">
-          <div class="flex items-center space-x-2">
-            <SpeakerWaveIcon class="w-5 h-5 text-gray-500 dark:text-dark-500" />
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.01"
-              :value="volume"
-              @input="onVolumeChange"
-              class="volume-slider w-20"
-            />
-          </div>
+          <VolumeControl
+            :volume="volume"
+            @volume-change="onVolumeChange"
+          />
         </div>
       </div>
 
@@ -116,15 +72,14 @@
             </div>
           </div>
           
-          <div class="flex items-center space-x-2">
-            <button
-              @click="$emit('toggle-favorite', track.id)"
-              class="btn-icon"
-              :class="isFavorite ? 'text-red-500' : 'text-gray-400'"
-            >
-              <HeartIcon :class="isFavorite ? 'fill-current' : ''" class="w-5 h-5" />
-            </button>
-          </div>
+          <TrackActions
+            :track="track"
+            :track-id="track.id"
+            :is-favorite="isFavorite"
+            @share="$emit('share', track)"
+            @toggle-favorite="$emit('toggle-favorite', track.id)"
+            class="sm:hidden"
+          />
         </div>
         
         <!-- Mobile Progress -->
@@ -136,35 +91,18 @@
           />
           <div class="flex items-center justify-between text-xs text-gray-500 dark:text-dark-500">
             <span>{{ formatTime(currentTime) }}</span>
-            <div class="flex items-center space-x-4">
-              <button @click="$emit('previous')" class="btn-icon">
-                <BackwardIcon class="w-4 h-4" />
-              </button>
-              
-              <!-- Stop/Play Button -->
-              <button
-                @click="togglePlay"
-                class="w-10 h-10 bg-gradient-to-br from-soundcloud-orange to-soundcloud-orange-light text-white rounded-full flex items-center justify-center"
-              >
-                <PlayIcon v-if="!isPlaying" class="w-5 h-5 ml-0.5" />
-                <PauseIcon v-else class="w-5 h-5" />
-              </button>
-              
-              <button @click="$emit('next')" class="btn-icon">
-                <ForwardIcon class="w-4 h-4" />
-              </button>
-              
-              <!-- Repeat Button for Mobile -->
-              <button
-                @click="$emit('toggle-repeat')"
-                class="btn-icon transition-colors duration-200 relative"
-                :class="repeatMode !== 'off' ? 'text-soundcloud-orange' : 'text-gray-600 dark:text-dark-600'"
-                :title="repeatMode === 'off' ? 'Repeat Off' : repeatMode === 'one' ? 'Repeat One' : 'Repeat All'"
-              >
-                <ArrowPathIcon class="w-4 h-4" />
-                <span v-if="repeatMode === 'one'" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-soundcloud-orange text-white text-xs rounded-full flex items-center justify-center font-bold leading-none">1</span>
-              </button>
-            </div>
+            <PlayerControls
+              :is-playing="isPlaying"
+              :repeat-mode="repeatMode"
+              :is-shuffled="isShuffled"
+              @play="$emit('play')"
+              @pause="$emit('pause')"
+              @next="$emit('next')"
+              @previous="$emit('previous')"
+              @toggle-repeat="$emit('toggle-repeat')"
+              @toggle-shuffle="$emit('toggle-shuffle')"
+              class="flex items-center space-x-4"
+            />
             <span>{{ formatTime(duration) }}</span>
           </div>
         </div>
@@ -174,19 +112,12 @@
 </template>
 
 <script setup lang="ts">
-import { 
-  PlayIcon, 
-  PauseIcon, 
-  ForwardIcon, 
-  BackwardIcon,
-  MusicalNoteIcon,
-  ArrowPathIcon,
-  ArrowsRightLeftIcon,
-  HeartIcon,
-  ShareIcon,
-  SpeakerWaveIcon
-} from '@heroicons/vue/24/solid'
+import { MusicalNoteIcon } from '@heroicons/vue/24/solid'
 import ProgressBar from './ProgressBar.vue'
+import PlayerControls from './player/PlayerControls.vue'
+import VolumeControl from './player/VolumeControl.vue'
+import TrackActions from './track/TrackActions.vue'
+import { formatTime } from '../utils/formatters'
 import type { Track } from '../types/Track'
 
 interface Props {
@@ -216,27 +147,11 @@ interface Emits {
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const togglePlay = () => {
-  if (props.isPlaying) {
-    emit('pause')
-  } else {
-    emit('play')
-  }
-}
-
 const onSeek = (time: number) => {
   emit('seek', time)
 }
 
-const onVolumeChange = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  emit('volume-change', parseFloat(target.value))
-}
-
-const formatTime = (seconds: number): string => {
-  if (!seconds || isNaN(seconds)) return '0:00'
-  const mins = Math.floor(seconds / 60)
-  const secs = Math.floor(seconds % 60)
-  return `${mins}:${secs.toString().padStart(2, '0')}`
+const onVolumeChange = (volume: number) => {
+  emit('volume-change', volume)
 }
 </script>
