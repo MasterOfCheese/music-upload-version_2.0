@@ -17,7 +17,7 @@
         <div class="flex items-center space-x-3 text-xs text-gray-400 dark:text-dark-400">
           <span>{{ formatDuration(track.duration) }}</span>
           <span>•</span>
-          <span>{{ track.playCount || 0 }} lượt play</span>
+          <span>{{ track.playCount || 0 }} lượt nghe</span>
         </div>
         
         <!-- Mobile Action Buttons -->
@@ -88,7 +88,7 @@
             <h3 class="text-lg font-semibold text-gray-900 dark:text-dark-900 truncate">{{ track.title }}</h3>
             <div class="flex items-center space-x-4 mt-1">
               <p class="text-sm text-gray-500 dark:text-dark-500 truncate">{{ track.artist }}</p>
-              <span class="text-xs text-gray-400 dark:text-dark-400">{{ track.playCount || 0 }} lượt play</span>
+              <span class="text-xs text-gray-400 dark:text-dark-400">{{ track.playCount || 0 }} lượt nghe</span>
             </div>
           </div>
           <div class="flex items-center space-x-2 ml-4">
