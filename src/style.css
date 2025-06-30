@@ -12,6 +12,9 @@
 ;
     gap: 1.2rem;
 }
+.space-y-3.sm\:space-y-4 {
+    margin-bottom: 3em;
+}
 
 @layer base {
   * {
