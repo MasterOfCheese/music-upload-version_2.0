@@ -210,10 +210,6 @@
       @apply p-2;
     }
     
-    .mobile-player .flex.items-center.justify-start {
-      @apply justify-start;
-    }
-    
     /* FIXED: Move controls to the left */
     .mobile-player .space-x-4 {
       @apply space-x-2;
@@ -281,7 +277,7 @@
   
   /* FIXED: Ensure mobile controls are left-aligned */
   .mobile-player .flex.items-center.justify-between {
-    @apply justify-start space-x-2;
+    @apply space-x-2;
   }
 }
 
