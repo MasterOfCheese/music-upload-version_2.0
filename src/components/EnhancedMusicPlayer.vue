@@ -1,6 +1,6 @@
 <template>
   <div class="floating-player">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
       <!-- Desktop Player -->
       <div class="desktop-player items-center justify-between h-20">
         <!-- Track Info -->
@@ -59,7 +59,7 @@
         </div>
       </div>
 
-      <!-- Mobile Player -->
+      <!-- Mobile Player - FIXED: Better left alignment -->
       <div class="mobile-player">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center space-x-3 flex-1 min-w-0">
@@ -76,20 +76,22 @@
             :track="track"
             :track-id="track.id"
             :is-favorite="isFavorite"
-            @share="$emit('share', track)"
-            @toggle-favorite="$emit('toggle-favorite', track.id)"
+            @share="handleShare"
+            @toggle-favorite="handleToggleFavorite"
+            @delete="handleDelete"
             class="sm:hidden"
           />
         </div>
         
-        <!-- Mobile Progress -->
+        <!-- Mobile Progress - FIXED: Better left alignment -->
         <div class="space-y-2">
           <ProgressBar
             :current-time="currentTime"
             :duration="duration"
             @seek="onSeek"
           />
-          <div class="flex items-center justify-between text-xs text-gray-500 dark:text-dark-500">
+          <!-- FIXED: Move this section to the left -->
+          <div class="flex items-center justify-start text-xs text-gray-500 dark:text-dark-500 space-x-4">
             <span>{{ formatTime(currentTime) }}</span>
             <PlayerControls
               :is-playing="isPlaying"
@@ -101,9 +103,9 @@
               @previous="$emit('previous')"
               @toggle-repeat="$emit('toggle-repeat')"
               @toggle-shuffle="$emit('toggle-shuffle')"
-              class="flex items-center space-x-4"
+              class="flex items-center space-x-3"
             />
-            <span>{{ formatTime(duration) }}</span>
+            <span class="ml-auto">{{ formatTime(duration) }}</span>
           </div>
         </div>
       </div>
@@ -142,6 +144,7 @@ interface Emits {
   (e: 'toggle-shuffle'): void
   (e: 'toggle-favorite', trackId: string): void
   (e: 'share', track: Track): void
+  (e: 'delete', trackId: string): void
 }
 
 const props = defineProps<Props>()
@@ -153,5 +156,21 @@ const onSeek = (time: number) => {
 
 const onVolumeChange = (volume: number) => {
   emit('volume-change', volume)
+}
+
+// FIXED: Add proper event handlers with console logging for debugging
+const handleToggleFavorite = () => {
+  console.log('🎵 EnhancedMusicPlayer: Toggle favorite clicked for track:', props.track.id)
+  emit('toggle-favorite', props.track.id)
+}
+
+const handleShare = () => {
+  console.log('🎵 EnhancedMusicPlayer: Share clicked for track:', props.track.title)
+  emit('share', props.track)
+}
+
+const handleDelete = () => {
+  console.log('🗑️ EnhancedMusicPlayer: Delete clicked for track:', props.track.id, props.track.title)
+  emit('delete', props.track.id)
 }
 </script>
