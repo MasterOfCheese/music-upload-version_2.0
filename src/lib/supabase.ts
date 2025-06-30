@@ -307,26 +307,44 @@ export const getTotalUniqueUsers = async () => {
   }
 }
 
-// USER FAVORITES FUNCTIONS - NEW
+// USER FAVORITES FUNCTIONS - IMPROVED WITH BETTER ERROR HANDLING
 export const getUserFavorites = async (userIp: string, userAgent: string) => {
   try {
+    console.log(`Getting favorites for user IP: ${userIp}`)
+    
+    // First check if the table exists
     const { data, error } = await supabase
       .from('user_favorites')
       .select('track_id')
       .eq('user_ip', userIp)
       .order('created_at', { ascending: false })
 
-    if (error) throw error
+    if (error) {
+      console.error('Supabase error getting user favorites:', error)
+      
+      // Handle specific error cases
+      if (error.code === '42P01') {
+        console.warn('user_favorites table does not exist. Please run the migration.')
+        return []
+      }
+      
+      throw new Error(`Failed to get user favorites: ${error.message || 'Unknown error'}`)
+    }
     
-    return data?.map(fav => fav.track_id) || []
+    const favorites = data?.map(fav => fav.track_id) || []
+    console.log(`Found ${favorites.length} favorites for user ${userIp}`)
+    return favorites
   } catch (error) {
     console.error('Error getting user favorites:', error)
+    // Return empty array as fallback instead of throwing
     return []
   }
 }
 
 export const addToUserFavorites = async (trackId: string, userIp: string, userAgent: string) => {
   try {
+    console.log(`Adding track ${trackId} to favorites for user ${userIp}`)
+    
     const { data, error } = await supabase
       .from('user_favorites')
       .insert([{
@@ -337,16 +355,22 @@ export const addToUserFavorites = async (trackId: string, userIp: string, userAg
       .select()
 
     if (error) {
-      // If it's a duplicate, that's okay - user already has it favorited
-      if (error.code === '23505') { // Unique constraint violation
+      console.error('Supabase error adding to favorites:', error)
+      
+      // Handle specific error cases
+      if (error.code === '42P01') {
+        throw new Error('Favorites table does not exist. Please run the database migration.')
+      } else if (error.code === '23505') {
+        // Unique constraint violation - already favorited
         console.log('Track already in favorites')
         return null
+      } else {
+        throw new Error(`Failed to add to favorites: ${error.message || 'Unknown error'}`)
       }
-      throw error
     }
     
-    console.log('Added to favorites:', data[0])
-    return data[0]
+    console.log('Successfully added to favorites:', data?.[0])
+    return data?.[0] || null
   } catch (error) {
     console.error('Error adding to favorites:', error)
     throw error
@@ -355,15 +379,25 @@ export const addToUserFavorites = async (trackId: string, userIp: string, userAg
 
 export const removeFromUserFavorites = async (trackId: string, userIp: string) => {
   try {
+    console.log(`Removing track ${trackId} from favorites for user ${userIp}`)
+    
     const { error } = await supabase
       .from('user_favorites')
       .delete()
       .eq('track_id', trackId)
       .eq('user_ip', userIp)
 
-    if (error) throw error
+    if (error) {
+      console.error('Supabase error removing from favorites:', error)
+      
+      if (error.code === '42P01') {
+        throw new Error('Favorites table does not exist. Please run the database migration.')
+      } else {
+        throw new Error(`Failed to remove from favorites: ${error.message || 'Unknown error'}`)
+      }
+    }
     
-    console.log('Removed from favorites:', trackId)
+    console.log('Successfully removed from favorites:', trackId)
   } catch (error) {
     console.error('Error removing from favorites:', error)
     throw error
@@ -377,12 +411,32 @@ export const getTrackFavoriteCount = async (trackId: string) => {
       .select('id')
       .eq('track_id', trackId)
 
-    if (error) throw error
+    if (error) {
+      if (error.code === '42P01') {
+        console.warn('user_favorites table does not exist')
+        return 0
+      }
+      throw error
+    }
     
     return data?.length || 0
   } catch (error) {
     console.error('Error getting track favorite count:', error)
     return 0
+  }
+}
+
+// Check if user_favorites table exists
+export const checkUserFavoritesTableExists = async () => {
+  try {
+    const { error } = await supabase
+      .from('user_favorites')
+      .select('count')
+      .limit(1)
+
+    return !error
+  } catch (error) {
+    return false
   }
 }
 

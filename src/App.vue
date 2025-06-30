@@ -405,7 +405,8 @@ import {
   updateTrackPlayCount,
   getUserFavorites,
   addToUserFavorites,
-  removeFromUserFavorites
+  removeFromUserFavorites,
+  checkUserFavoritesTableExists
 } from './lib/supabase'
 import type { Track, Notification } from './types/Track'
 
@@ -630,6 +631,15 @@ const checkSupabaseConnection = async () => {
   try {
     const { error } = await supabase.from('tracks').select('count').limit(1)
     isSupabaseConnected.value = !error
+    
+    // Also check if user_favorites table exists
+    if (isSupabaseConnected.value) {
+      const favoritesTableExists = await checkUserFavoritesTableExists()
+      if (!favoritesTableExists) {
+        console.warn('user_favorites table does not exist. Favorites will use localStorage fallback.')
+        showNotification('warning', 'Favorites table missing', 'Please run the database migration for full functionality.')
+      }
+    }
   } catch (error) {
     isSupabaseConnected.value = false
   }
@@ -693,23 +703,44 @@ const saveTracksToLocalStorage = () => {
   }
 }
 
-// NEW: Load user-specific favorites
+// IMPROVED: Load user-specific favorites with better error handling
 const loadUserFavorites = async () => {
-  if (!userFingerprint.value || !isSupabaseConnected.value) {
-    // Fallback to localStorage for local favorites
-    const savedFavorites = localStorage.getItem(`favorites_${userFingerprint.value?.fingerprint || 'local'}`)
-    if (savedFavorites) {
-      userFavoriteTracks.value = JSON.parse(savedFavorites)
-    }
+  if (!userFingerprint.value) {
+    console.log('No user fingerprint available yet')
     return
   }
-  
+
   try {
-    const favorites = await getUserFavorites(userFingerprint.value.ip, userFingerprint.value.userAgent)
-    userFavoriteTracks.value = favorites
-    console.log(`Loaded ${favorites.length} favorites for user ${userFingerprint.value.ip}`)
+    if (isSupabaseConnected.value) {
+      // Try to load from Supabase first
+      const favorites = await getUserFavorites(userFingerprint.value.ip, userFingerprint.value.userAgent)
+      userFavoriteTracks.value = favorites
+      console.log(`Loaded ${favorites.length} favorites from Supabase for user ${userFingerprint.value.ip}`)
+      
+      // Save to localStorage as backup
+      localStorage.setItem(`favorites_${userFingerprint.value.fingerprint}`, JSON.stringify(favorites))
+    } else {
+      // Fallback to localStorage
+      const savedFavorites = localStorage.getItem(`favorites_${userFingerprint.value.fingerprint}`)
+      if (savedFavorites) {
+        userFavoriteTracks.value = JSON.parse(savedFavorites)
+        console.log(`Loaded ${userFavoriteTracks.value.length} favorites from localStorage`)
+      }
+    }
   } catch (error) {
     console.error('Error loading user favorites:', error)
+    
+    // Always fallback to localStorage if Supabase fails
+    try {
+      const savedFavorites = localStorage.getItem(`favorites_${userFingerprint.value.fingerprint}`)
+      if (savedFavorites) {
+        userFavoriteTracks.value = JSON.parse(savedFavorites)
+        console.log(`Fallback: Loaded ${userFavoriteTracks.value.length} favorites from localStorage`)
+      }
+    } catch (localError) {
+      console.error('Error loading favorites from localStorage:', localError)
+      userFavoriteTracks.value = []
+    }
   }
 }
 
@@ -920,7 +951,7 @@ const toggleShuffle = () => {
   isShuffled.value = !isShuffled.value
 }
 
-// NEW: Updated toggleFavorite to use user-specific favorites
+// IMPROVED: Updated toggleFavorite with better error handling and fallbacks
 const toggleFavorite = async (trackId: string) => {
   if (!userFingerprint.value) {
     showNotification('warning', 'Không thể thêm yêu thích', 'Đang tải thông tin user...')
@@ -933,25 +964,49 @@ const toggleFavorite = async (trackId: string) => {
     if (isFavorited) {
       // Remove from favorites
       if (isSupabaseConnected.value) {
-        await removeFromUserFavorites(trackId, userFingerprint.value.ip)
+        try {
+          await removeFromUserFavorites(trackId, userFingerprint.value.ip)
+        } catch (supabaseError) {
+          console.warn('Supabase remove failed, using localStorage only:', supabaseError)
+        }
       }
+      
+      // Always update local state
       userFavoriteTracks.value = userFavoriteTracks.value.filter(id => id !== trackId)
       showNotification('success', 'Đã xóa khỏi yêu thích', '')
     } else {
       // Add to favorites
       if (isSupabaseConnected.value) {
-        await addToUserFavorites(trackId, userFingerprint.value.ip, userFingerprint.value.userAgent)
+        try {
+          await addToUserFavorites(trackId, userFingerprint.value.ip, userFingerprint.value.userAgent)
+        } catch (supabaseError) {
+          console.warn('Supabase add failed, using localStorage only:', supabaseError)
+        }
       }
+      
+      // Always update local state
       userFavoriteTracks.value.push(trackId)
       showNotification('success', 'Đã thêm vào yêu thích', '')
     }
     
-    // Save to localStorage as backup
+    // Always save to localStorage as backup
     localStorage.setItem(`favorites_${userFingerprint.value.fingerprint}`, JSON.stringify(userFavoriteTracks.value))
     
   } catch (error) {
     console.error('Error toggling favorite:', error)
-    showNotification('error', 'Lỗi', 'Không thể cập nhật yêu thích')
+    showNotification('error', 'Lỗi', 'Không thể cập nhật yêu thích. Đã lưu vào bộ nhớ local.')
+    
+    // Even if there's an error, try to update localStorage
+    try {
+      if (isFavorited) {
+        userFavoriteTracks.value = userFavoriteTracks.value.filter(id => id !== trackId)
+      } else {
+        userFavoriteTracks.value.push(trackId)
+      }
+      localStorage.setItem(`favorites_${userFingerprint.value.fingerprint}`, JSON.stringify(userFavoriteTracks.value))
+    } catch (localError) {
+      console.error('Even localStorage failed:', localError)
+    }
   }
 }
 
@@ -1121,7 +1176,7 @@ onMounted(async () => {
   
   await loadTracks()
   
-  // Load user-specific favorites after getting fingerprint
+  // Load user-specific favorites after getting fingerprint and tracks
   await loadUserFavorites()
   
   // Listen for window resize
