@@ -7,6 +7,12 @@
     margin-right: calc(1rem * var(--tw-space-x-reverse));
     margin-left: 0!important;
 }
+.flex.items-center.space-x-2.hidden.sm\:flex {
+    display: flex
+;
+    gap: 1.2rem;
+}
+
 @layer base {
   * {
     @apply border-gray-200 dark:border-dark-200;
