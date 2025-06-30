@@ -198,11 +198,6 @@
       @apply max-w-full;
     }
     
-    /* Fix padding issues on mobile */
-    .px-3 {
-      @apply px-3;
-    }
-    
     /* Ensure buttons are properly sized */
     .btn-icon {
       @apply p-2;
