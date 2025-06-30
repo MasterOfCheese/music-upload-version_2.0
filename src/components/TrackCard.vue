@@ -38,7 +38,7 @@
       
       <!-- Play Count -->
       <div class="flex items-center justify-between text-xs text-gray-400 dark:text-dark-400">
-        <span>{{ track.playCount || 0 }} lượt play</span>
+        <span>{{ track.playCount || 0 }} lượt nghe</span>
         <span>{{ formatDuration(track.duration) }}</span>
       </div>
       
