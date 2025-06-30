@@ -5,9 +5,7 @@
       <div class="desktop-player items-center justify-between h-20">
         <!-- Track Info -->
         <div class="flex items-center space-x-4 flex-1 min-w-0">
-          <div class="w-14 h-14 bg-gradient-to-br from-soundcloud-orange to-soundcloud-orange-light rounded-xl flex items-center justify-center shadow-glow">
-            <MusicalNoteIcon class="w-7 h-7 text-white" />
-          </div>
+          
           <div class="min-w-0 flex-1">
             <h4 class="text-sm font-semibold text-gray-900 dark:text-dark-900 truncate">{{ track.title }}</h4>
             <p class="text-xs text-gray-500 dark:text-dark-500 truncate">{{ track.artist }}</p>
