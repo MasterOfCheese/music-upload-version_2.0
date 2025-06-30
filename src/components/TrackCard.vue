@@ -19,7 +19,7 @@
       
       <!-- Favorite Button -->
       <button
-        @click="$emit('toggle-favorite', track.id)"
+        @click.stop="handleToggleFavorite"
         class="absolute top-3 right-3 btn-icon bg-white/20 backdrop-blur-sm"
         :class="isFavorite ? 'text-red-500' : 'text-white hover:text-red-500'"
       >
@@ -53,18 +53,18 @@
         </div>
       </div>
       
-      <!-- Actions -->
+      <!-- Actions - FIXED: Added proper event handlers -->
       <div class="flex items-center justify-between pt-2">
         <div class="flex items-center space-x-1">
           <button
-            @click="$emit('share', track)"
+            @click.stop="handleShare"
             class="btn-icon text-gray-400 hover:text-blue-500 p-1"
           >
             <ShareIcon class="w-4 h-4" />
           </button>
           
           <button
-            @click="$emit('delete', track.id)"
+            @click.stop="handleDelete"
             class="btn-icon text-gray-400 hover:text-red-500 p-1"
           >
             <TrashIcon class="w-4 h-4" />
@@ -117,6 +117,19 @@ const onSeek = (time: number) => {
   if (props.isCurrent) {
     emit('seek', time)
   }
+}
+
+// FIXED: Added proper event handlers for action buttons
+const handleToggleFavorite = () => {
+  emit('toggle-favorite', props.track.id)
+}
+
+const handleShare = () => {
+  emit('share', props.track)
+}
+
+const handleDelete = () => {
+  emit('delete', props.track.id)
 }
 
 const formatDuration = (seconds: number): string => {
