@@ -20,10 +20,10 @@
           <span>{{ track.playCount || 0 }} lượt play</span>
         </div>
         
-        <!-- Mobile Action Buttons - FIXED: Added proper event handlers -->
-        <div class="flex items-center space-x-1">
+        <!-- Mobile Action Buttons -->
+        <div class="flex items-center space-x-2">
           <button
-            @click.stop="handleToggleFavorite"
+            @click="$emit('toggle-favorite', track.id)"
             class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-200 transition-colors"
             :class="isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'"
           >
@@ -31,14 +31,14 @@
           </button>
           
           <button
-            @click.stop="handleShare"
+            @click="$emit('share', track)"
             class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-200 transition-colors text-gray-400 hover:text-blue-500"
           >
             <ShareIcon class="w-5 h-5" />
           </button>
           
           <button
-            @click.stop="handleDelete"
+            @click="$emit('delete', track.id)"
             class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-200 transition-colors text-gray-400 hover:text-red-500"
           >
             <TrashIcon class="w-5 h-5" />
@@ -94,9 +94,9 @@
           <div class="flex items-center space-x-2 ml-4">
             <span class="text-sm text-gray-400 dark:text-dark-400">{{ formatDuration(track.duration) }}</span>
             
-            <!-- Desktop Action Buttons - FIXED: Added proper event handlers -->
+            <!-- Desktop Action Buttons -->
             <button
-              @click.stop="handleToggleFavorite"
+              @click="$emit('toggle-favorite', track.id)"
               class="btn-icon w-10 h-10"
               :class="isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'"
             >
@@ -104,14 +104,14 @@
             </button>
             
             <button
-              @click.stop="handleShare"
+              @click="$emit('share', track)"
               class="btn-icon w-10 h-10 text-gray-400 hover:text-blue-500"
             >
               <ShareIcon class="w-5 h-5" />
             </button>
             
             <button
-              @click.stop="handleDelete"
+              @click="$emit('delete', track.id)"
               class="btn-icon w-10 h-10 text-gray-400 hover:text-red-500"
             >
               <TrashIcon class="w-5 h-5" />
@@ -178,19 +178,6 @@ const onSeek = (percentage: number) => {
     const time = (percentage / 100) * props.duration
     emit('seek', time)
   }
-}
-
-// FIXED: Added proper event handlers for action buttons
-const handleToggleFavorite = () => {
-  emit('toggle-favorite', props.track.id)
-}
-
-const handleShare = () => {
-  emit('share', props.track)
-}
-
-const handleDelete = () => {
-  emit('delete', props.track.id)
 }
 
 const formatDuration = (seconds: number): string => {
