@@ -15,6 +15,9 @@
 .space-y-3.sm\:space-y-4 {
     margin-bottom: 3em;
 }
+button.flex-shrink-0.w-14.h-14.bg-gradient-to-br.from-soundcloud-orange.to-soundcloud-orange-light.text-white.rounded-full.flex.items-center.justify-center.hover\:shadow-glow.transition-all.duration-200.transform.hover\:scale-110 {
+    z-index: 100;
+}
 
 @layer base {
   * {
