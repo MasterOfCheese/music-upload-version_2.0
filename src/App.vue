@@ -84,7 +84,7 @@
         </div>
         <div class="card text-center p-3 sm:p-6">
           <div class="text-xl sm:text-2xl font-bold gradient-text">{{ totalUsers }}</div>
-          <div class="text-xs sm:text-sm text-gray-600 dark:text-dark-600 font-medium">Tổng số User</div>
+          <div class="text-xs sm:text-sm text-gray-600 dark:text-dark-600 font-medium">User đã truy cập</div>
         </div>
         <!-- Clickable Favorites Card - Now shows user-specific count -->
         <div 
