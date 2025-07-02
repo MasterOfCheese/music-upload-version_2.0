@@ -588,13 +588,13 @@ const saveTrack = async () => {
       }
     }
     
-    // Save to database
+    // Save to database - Round duration to nearest integer
     const trackData: DatabaseTrack = {
       id: Date.now().toString(),
       title: pendingTrack.value.title,
       artist: pendingTrack.value.artist,
       file_name: fileName || '',
-      duration: pendingTrack.value.duration,
+      duration: Math.round(pendingTrack.value.duration), // Fix: Round to integer
       file_size: pendingTrack.value.file.size,
       waveform_data: pendingTrack.value.waveformData,
       uploaded_at: new Date().toISOString(),
