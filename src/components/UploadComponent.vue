@@ -236,6 +236,7 @@ interface PendingTrack {
   url: string
   duration: number
   fileName?: string
+  waveformData?: number[]
 }
 
 interface StorageQuota {
@@ -445,5 +446,184 @@ const uploadFile = async (file: File) => {
         }
       }, 200)
       
-      await new Promise(resolve => setTimeout(re
-(Content truncated due to size limit. Use line ranges to read in chunks)
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+    
+    // Common logic after upload/URL creation
+    const waveformData = await generateWaveformData(file)
+    
+    pendingTrack.value = {
+      title: file.name.split('.').slice(0, -1).join('.'),
+      artist: 'Unknown Artist',
+      file,
+      url,
+      duration,
+      fileName,
+      waveformData
+    }
+    
+    uploadingFiles.value = uploadingFiles.value.filter(f => f !== uploadingFile)
+    
+  } catch (error) {
+    console.error('Error during file upload/processing:', error)
+    uploadingFile.error = true
+    uploadingFile.status = `Lỗi: ${(error as Error).message}`
+    uploadingFile.speed = 'Thất bại'
+    
+    setTimeout(() => {
+      uploadingFiles.value = uploadingFiles.value.filter(f => f !== uploadingFile)
+    }, 5000)
+  }
+}
+
+const getAudioDuration = (file: File): Promise<number> => {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio()
+    audio.preload = 'metadata'
+    audio.onloadedmetadata = () => {
+      URL.revokeObjectURL(audio.src)
+      resolve(audio.duration)
+    }
+    audio.onerror = () => {
+      URL.revokeObjectURL(audio.src)
+      reject(new Error('Failed to load audio metadata.'))
+    }
+    audio.src = URL.createObjectURL(file)
+  })
+}
+
+const generateWaveformData = async (file: File): Promise<number[]> => {
+  return new Promise((resolve, reject) => {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+    const reader = new FileReader()
+
+    reader.onload = async (e) => {
+      try {
+        const audioBuffer = await audioContext.decodeAudioData(e.target?.result as ArrayBuffer)
+        const rawData = audioBuffer.getChannelData(0) // Get the first channel's data
+        const samples = 100 // Number of samples to extract for waveform
+        const blockSize = Math.floor(rawData.length / samples)
+        const filteredData: number[] = []
+
+        for (let i = 0; i < samples; i++) {
+          let sum = 0
+          const start = i * blockSize
+          const end = (i + 1) * blockSize
+          for (let j = start; j < end; j++) {
+            sum += Math.abs(rawData[j]) // Sum absolute values for amplitude
+          }
+          filteredData.push(sum / blockSize) // Average amplitude for the block
+        }
+        resolve(filteredData)
+      } catch (error) {
+        reject(new Error('Error decoding audio data for waveform.'))
+      }
+    }
+    reader.onerror = () => reject(new Error('Error reading file for waveform.'))
+    reader.readAsArrayBuffer(file)
+  })
+}
+
+const formatSpeed = (bytesPerSecond: number): string => {
+  if (bytesPerSecond < 1024) return `${Math.round(bytesPerSecond)} B`
+  if (bytesPerSecond < 1024 * 1024) return `${Math.round(bytesPerSecond / 1024)} KB`
+  return `${Math.round(bytesPerSecond / (1024 * 1024))} MB`
+}
+
+const formatFileSize = (bytes: number): string => {
+  if (bytes === 0) return '0 Bytes'
+  const k = 1024
+  const sizes = ['Bytes', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+const formatDuration = (seconds: number): string => {
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+const getFileFormat = (fileName: string): string => {
+  const parts = fileName.split('.')
+  return parts.length > 1 ? parts.pop()!.toUpperCase() : 'N/A'
+}
+
+const saveTrack = async () => {
+  if (!pendingTrack.value) return
+  
+  isSaving.value = true
+  
+  try {
+    const trackData: DatabaseTrack = {
+      title: pendingTrack.value.title,
+      artist: pendingTrack.value.artist,
+      url: pendingTrack.value.url,
+      duration: pendingTrack.value.duration,
+      file_name: pendingTrack.value.fileName,
+      waveform_data: pendingTrack.value.waveformData || []
+    }
+    
+    let savedTrack: Track
+    
+    if (isSupabaseConnected.value) {
+      savedTrack = await saveTrackToDatabase(trackData)
+    } else {
+      // For local storage, create a mock track with ID
+      savedTrack = {
+        id: Date.now().toString(),
+        ...trackData,
+        created_at: new Date().toISOString(),
+        play_count: 0
+      }
+    }
+    
+    emit('upload-success', savedTrack)
+    pendingTrack.value = null
+    
+  } catch (error) {
+    console.error('Error saving track:', error)
+    alert('Có lỗi xảy ra khi lưu bài hát. Vui lòng thử lại.')
+  } finally {
+    isSaving.value = false
+  }
+}
+
+const cancelUpload = () => {
+  if (pendingTrack.value && !isSupabaseConnected.value) {
+    // Revoke object URL for local files
+    URL.revokeObjectURL(pendingTrack.value.url)
+  }
+  pendingTrack.value = null
+}
+</script>
+
+<style scoped>
+.upload-zone {
+  @apply border-2 border-dashed border-gray-300 dark:border-dark-300 rounded-lg p-8 text-center cursor-pointer transition-all duration-200 hover:border-soundcloud-orange hover:bg-soundcloud-orange/5;
+}
+
+.upload-zone.dragover {
+  @apply border-soundcloud-orange bg-soundcloud-orange/10 scale-105;
+}
+
+.glass-card {
+  @apply bg-white/80 dark:bg-dark-100/80 backdrop-blur-sm border border-gray-200/50 dark:border-dark-300/50 rounded-lg;
+}
+
+.input-field {
+  @apply w-full px-3 py-2 border border-gray-300 dark:border-dark-300 rounded-md bg-white dark:bg-dark-100 text-gray-900 dark:text-dark-900 focus:ring-2 focus:ring-soundcloud-orange focus:border-transparent;
+}
+
+.btn {
+  @apply px-4 py-2 rounded-md font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+}
+
+.btn-primary {
+  @apply bg-soundcloud-orange text-white hover:bg-soundcloud-orange-light focus:ring-soundcloud-orange;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 dark:bg-dark-200 text-gray-800 dark:text-dark-800 hover:bg-gray-300 dark:hover:bg-dark-300 focus:ring-gray-500;
+}
+</style>
