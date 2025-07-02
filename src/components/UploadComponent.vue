@@ -78,7 +78,7 @@
           </div>
           <div class="flex items-center space-x-1">
             <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-            <span>Upload nhanh</span>
+            <span>Xử lý nhanh</span>
           </div>
           <div class="flex items-center space-x-1">
             <div class="w-2 h-2 bg-purple-500 rounded-full"></div>
@@ -111,13 +111,13 @@
       </div>
     </div>
 
-    <!-- Upload Progress -->
-    <div v-if="uploadingFiles.length > 0" class="mt-6 space-y-3">
+    <!-- Processing Progress (Local only) -->
+    <div v-if="processingFiles.length > 0" class="mt-6 space-y-3">
       <h4 class="text-sm font-medium text-gray-900 dark:text-dark-900">
-        {{ isSupabaseConnected ? 'Đang upload lên Supabase...' : 'Đang xử lý file...' }}
+        Đang xử lý file...
       </h4>
       <div
-        v-for="file in uploadingFiles"
+        v-for="file in processingFiles"
         :key="file.name"
         class="glass-card p-4"
       >
@@ -127,16 +127,13 @@
             <p class="text-sm font-medium text-gray-900 dark:text-dark-900 truncate">{{ file.name }}</p>
             <div class="flex items-center justify-between text-xs text-gray-600 dark:text-dark-600 mt-1">
               <span>{{ formatFileSize(file.size) }}</span>
-              <span>{{ file.speed }}</span>
+              <span>{{ file.status }}</span>
             </div>
             <div class="w-full bg-gray-200 dark:bg-dark-300 rounded-full h-2 mt-2">
               <div
                 class="bg-gradient-to-r from-soundcloud-orange to-soundcloud-orange-light h-2 rounded-full transition-all duration-300"
                 :style="{ width: `${file.progress}%` }"
               />
-            </div>
-            <div v-if="file.status" class="text-xs mt-1" :class="file.error ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-dark-700'">
-              {{ file.status }}
             </div>
           </div>
           <span class="text-xs text-gray-600 dark:text-dark-600 font-medium">{{ file.progress }}%</span>
@@ -188,7 +185,7 @@
           <div class="flex justify-between">
             <span>Lưu trữ:</span>
             <span class="font-medium" :class="isSupabaseConnected ? 'text-green-600' : 'text-yellow-600'">
-              {{ isSupabaseConnected ? 'Vĩnh viễn (Supabase)' : 'Tạm thời (Local)' }}
+              {{ isSupabaseConnected ? 'Sẽ upload khi lưu' : 'Tạm thời (Local)' }}
             </span>
           </div>
         </div>
@@ -207,36 +204,66 @@
           :disabled="!pendingTrack.title || !pendingTrack.artist || isSaving"
           class="flex-1 btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {{ isSaving ? 'Đang lưu...' : 'Lưu bài hát' }}
+          {{ isSaving ? (isSupabaseConnected ? 'Đang upload & lưu...' : 'Đang lưu...') : 'Lưu bài hát' }}
         </button>
+      </div>
+    </div>
+
+    <!-- Upload Progress (Only shown during save) -->
+    <div v-if="uploadingToSupabase" class="mt-6 space-y-3">
+      <h4 class="text-sm font-medium text-gray-900 dark:text-dark-900">
+        Đang upload lên Supabase...
+      </h4>
+      <div class="glass-card p-4">
+        <div class="flex items-center space-x-3">
+          <MusicalNoteIcon class="w-5 h-5 text-soundcloud-orange flex-shrink-0" />
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 dark:text-dark-900 truncate">{{ uploadProgress.fileName }}</p>
+            <div class="flex items-center justify-between text-xs text-gray-600 dark:text-dark-600 mt-1">
+              <span>{{ uploadProgress.status }}</span>
+              <span>{{ uploadProgress.speed }}</span>
+            </div>
+            <div class="w-full bg-gray-200 dark:bg-dark-300 rounded-full h-2 mt-2">
+              <div
+                class="bg-gradient-to-r from-soundcloud-orange to-soundcloud-orange-light h-2 rounded-full transition-all duration-300"
+                :style="{ width: `${uploadProgress.progress}%` }"
+              />
+            </div>
+          </div>
+          <span class="text-xs text-gray-600 dark:text-dark-600 font-medium">{{ uploadProgress.progress }}%</span>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { CloudArrowUpIcon, MusicalNoteIcon, ExclamationTriangleIcon, InformationCircleIcon } from '@heroicons/vue/24/outline'
 import { supabase, uploadAudioFile, getAudioFileUrl, saveTrackToDatabase, checkStorageQuota } from '../lib/supabase'
 import type { Track, DatabaseTrack } from '../types/Track'
 
-interface UploadingFile {
+interface ProcessingFile {
   name: string
   progress: number
   size: number
-  speed: string
-  status?: string
-  error?: boolean
+  status: string
 }
 
 interface PendingTrack {
   title: string
   artist: string
   file: File
-  url: string
+  localUrl: string
   duration: number
-  fileName?: string
-  waveformData?: number[]
+  waveformData: number[]
+}
+
+interface UploadProgress {
+  fileName: string
+  progress: number
+  status: string
+  speed: string
 }
 
 interface StorageQuota {
@@ -260,7 +287,7 @@ const localMaxSizeBytes = localMaxSizeMB.value * 1024 * 1024
 const fileInput = ref<HTMLInputElement>()
 const uploadZone = ref<HTMLElement>()
 const isDragOver = ref(false)
-const uploadingFiles = ref<UploadingFile[]>([])
+const processingFiles = ref<ProcessingFile[]>([])
 const pendingTrack = ref<PendingTrack | null>(null)
 const showSizeWarning = ref(false)
 const sizeWarningMessage = ref('')
@@ -268,6 +295,15 @@ const sizeWarningTitle = ref('')
 const isSaving = ref(false)
 const isSupabaseConnected = ref(false)
 const storageQuota = ref<StorageQuota | null>(null)
+
+// NEW: Upload progress tracking (only during save)
+const uploadingToSupabase = ref(false)
+const uploadProgress = ref<UploadProgress>({
+  fileName: '',
+  progress: 0,
+  status: '',
+  speed: ''
+})
 
 // Check Supabase connection and storage quota
 const checkSupabaseConnection = async () => {
@@ -285,6 +321,13 @@ const checkSupabaseConnection = async () => {
 
 onMounted(() => {
   checkSupabaseConnection()
+})
+
+// Cleanup local URLs when component unmounts
+onUnmounted(() => {
+  if (pendingTrack.value) {
+    URL.revokeObjectURL(pendingTrack.value.localUrl)
+  }
 })
 
 const triggerFileInput = () => {
@@ -368,110 +411,60 @@ const handleFiles = (files: File[]) => {
     }
   }
   
-  uploadFile(file)
+  // Process file locally (no upload yet)
+  processFileLocally(file)
 }
 
-const uploadFile = async (file: File) => {
-  const uploadingFile: UploadingFile = {
+// NEW: Process file locally without uploading to Supabase
+const processFileLocally = async (file: File) => {
+  const processingFile: ProcessingFile = {
     name: file.name,
     progress: 0,
     size: file.size,
-    speed: 'Đang chuẩn bị...',
-    status: 'Đang xử lý file...',
-    error: false
+    status: 'Đang chuẩn bị...'
   }
   
-  uploadingFiles.value.push(uploadingFile)
+  processingFiles.value.push(processingFile)
   
   try {
-    const startTime = Date.now()
+    // Step 1: Create local URL
+    processingFile.status = 'Tạo URL tạm thời...'
+    processingFile.progress = 20
+    const localUrl = URL.createObjectURL(file)
     
-    // Get audio duration first
-    uploadingFile.status = 'Đang phân tích file...'
+    // Step 2: Get audio duration
+    processingFile.status = 'Đang phân tích thời lượng...'
+    processingFile.progress = 40
     const duration = await getAudioDuration(file)
-    uploadingFile.progress = 20
     
-    let url: string
-    let fileName: string | undefined
-    
-    if (isSupabaseConnected.value) {
-      // Upload to Supabase Storage
-      uploadingFile.status = 'Đang upload lên Supabase...'
-      fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
-      
-      // Simulate upload progress
-      const uploadInterval = setInterval(() => {
-        if (uploadingFile.progress < 90) {
-          uploadingFile.progress += Math.random() * 10 + 5
-          const elapsed = (Date.now() - startTime) / 1000
-          const bytesUploaded = (uploadingFile.progress / 100) * file.size
-          const speed = bytesUploaded / elapsed
-          uploadingFile.speed = `${formatSpeed(speed)}/s`
-        }
-      }, 300)
-      
-      try {
-        await uploadAudioFile(file, fileName)
-        url = await getAudioFileUrl(fileName)
-        clearInterval(uploadInterval)
-        uploadingFile.progress = 100
-        uploadingFile.status = 'Upload hoàn thành!'
-        
-        // Refresh storage quota
-        storageQuota.value = await checkStorageQuota()
-      } catch (error) {
-        clearInterval(uploadInterval)
-        uploadingFile.error = true
-        uploadingFile.status = (error as Error).message
-        uploadingFile.speed = 'Thất bại'
-        
-        // Remove failed upload after 10 seconds
-        setTimeout(() => {
-          uploadingFiles.value = uploadingFiles.value.filter(f => f !== uploadingFile)
-        }, 10000)
-        return
-      }
-    } else {
-      // Use local object URL
-      uploadingFile.status = 'Tạo URL tạm thời...'
-      url = URL.createObjectURL(file)
-      
-      // Simulate processing time
-      const processInterval = setInterval(() => {
-        uploadingFile.progress += Math.random() * 15 + 10
-        if (uploadingFile.progress >= 100) {
-          uploadingFile.progress = 100
-          uploadingFile.status = 'Xử lý hoàn thành!'
-          clearInterval(processInterval)
-        }
-      }, 200)
-      
-      await new Promise(resolve => setTimeout(resolve, 500))
-    }
-    
-    // Common logic after upload/URL creation
+    // Step 3: Generate waveform
+    processingFile.status = 'Tạo waveform...'
+    processingFile.progress = 70
     const waveformData = await generateWaveformData(file)
     
+    // Step 4: Complete
+    processingFile.status = 'Hoàn thành!'
+    processingFile.progress = 100
+    
+    // Create pending track (ready to save)
     pendingTrack.value = {
       title: file.name.split('.').slice(0, -1).join('.'),
       artist: 'Unknown Artist',
       file,
-      url,
+      localUrl,
       duration,
-      fileName,
       waveformData
     }
     
-    uploadingFiles.value = uploadingFiles.value.filter(f => f !== uploadingFile)
+    // Remove from processing list
+    processingFiles.value = processingFiles.value.filter(f => f !== processingFile)
     
   } catch (error) {
-    console.error('Error during file upload/processing:', error)
-    uploadingFile.error = true
-    uploadingFile.status = `Lỗi: ${(error as Error).message}`
-    uploadingFile.speed = 'Thất bại'
+    console.error('Error processing file locally:', error)
+    processingFile.status = `Lỗi: ${(error as Error).message}`
     
     setTimeout(() => {
-      uploadingFiles.value = uploadingFiles.value.filter(f => f !== uploadingFile)
+      processingFiles.value = processingFiles.value.filter(f => f !== processingFile)
     }, 5000)
   }
 }
@@ -500,8 +493,8 @@ const generateWaveformData = async (file: File): Promise<number[]> => {
     reader.onload = async (e) => {
       try {
         const audioBuffer = await audioContext.decodeAudioData(e.target?.result as ArrayBuffer)
-        const rawData = audioBuffer.getChannelData(0) // Get the first channel's data
-        const samples = 100 // Number of samples to extract for waveform
+        const rawData = audioBuffer.getChannelData(0)
+        const samples = 100
         const blockSize = Math.floor(rawData.length / samples)
         const filteredData: number[] = []
 
@@ -510,9 +503,9 @@ const generateWaveformData = async (file: File): Promise<number[]> => {
           const start = i * blockSize
           const end = (i + 1) * blockSize
           for (let j = start; j < end; j++) {
-            sum += Math.abs(rawData[j]) // Sum absolute values for amplitude
+            sum += Math.abs(rawData[j])
           }
-          filteredData.push(sum / blockSize) // Average amplitude for the block
+          filteredData.push(sum / blockSize)
         }
         resolve(filteredData)
       } catch (error) {
@@ -522,12 +515,6 @@ const generateWaveformData = async (file: File): Promise<number[]> => {
     reader.onerror = () => reject(new Error('Error reading file for waveform.'))
     reader.readAsArrayBuffer(file)
   })
-}
-
-const formatSpeed = (bytesPerSecond: number): string => {
-  if (bytesPerSecond < 1024) return `${Math.round(bytesPerSecond)} B`
-  if (bytesPerSecond < 1024 * 1024) return `${Math.round(bytesPerSecond / 1024)} KB`
-  return `${Math.round(bytesPerSecond / (1024 * 1024))} MB`
 }
 
 const formatFileSize = (bytes: number): string => {
@@ -549,62 +536,140 @@ const getFileFormat = (fileName: string): string => {
   return parts.length > 1 ? parts.pop()!.toUpperCase() : 'N/A'
 }
 
+// UPDATED: Save track - now uploads to Supabase during save
 const saveTrack = async () => {
   if (!pendingTrack.value) return
   
   isSaving.value = true
   
   try {
+    let finalUrl = pendingTrack.value.localUrl
+    let fileName: string | undefined
+    
+    // Upload to Supabase if connected
+    if (isSupabaseConnected.value) {
+      uploadingToSupabase.value = true
+      fileName = `${Date.now()}-${pendingTrack.value.file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`
+      
+      uploadProgress.value = {
+        fileName: pendingTrack.value.file.name,
+        progress: 0,
+        status: 'Đang upload lên Supabase...',
+        speed: ''
+      }
+      
+      const startTime = Date.now()
+      
+      // Simulate upload progress
+      const uploadInterval = setInterval(() => {
+        if (uploadProgress.value.progress < 90) {
+          uploadProgress.value.progress += Math.random() * 10 + 5
+          const elapsed = (Date.now() - startTime) / 1000
+          const bytesUploaded = (uploadProgress.value.progress / 100) * pendingTrack.value!.file.size
+          const speed = bytesUploaded / elapsed
+          uploadProgress.value.speed = `${formatSpeed(speed)}/s`
+        }
+      }, 300)
+      
+      try {
+        await uploadAudioFile(pendingTrack.value.file, fileName)
+        finalUrl = await getAudioFileUrl(fileName)
+        
+        clearInterval(uploadInterval)
+        uploadProgress.value.progress = 100
+        uploadProgress.value.status = 'Upload hoàn thành!'
+        
+        // Refresh storage quota
+        storageQuota.value = await checkStorageQuota()
+      } catch (error) {
+        clearInterval(uploadInterval)
+        uploadingToSupabase.value = false
+        throw error
+      }
+    }
+    
+    // Save to database
     const trackData: DatabaseTrack = {
+      id: Date.now().toString(),
       title: pendingTrack.value.title,
       artist: pendingTrack.value.artist,
-      url: pendingTrack.value.url,
+      file_name: fileName || '',
       duration: pendingTrack.value.duration,
-      file_name: pendingTrack.value.fileName,
-      waveform_data: pendingTrack.value.waveformData || []
+      file_size: pendingTrack.value.file.size,
+      waveform_data: pendingTrack.value.waveformData,
+      uploaded_at: new Date().toISOString(),
+      play_count: 0
     }
     
     let savedTrack: Track
     
-    if (isSupabaseConnected.value) {
-      savedTrack = await saveTrackToDatabase(trackData)
-    } else {
-      // For local storage, create a mock track with ID
+    if (isSupabaseConnected.value && fileName) {
+      const dbTrack = await saveTrackToDatabase(trackData)
       savedTrack = {
-        id: Date.now().toString(),
-        ...trackData,
-        created_at: new Date().toISOString(),
-        play_count: 0
+        id: dbTrack.id,
+        title: dbTrack.title,
+        artist: dbTrack.artist,
+        url: finalUrl,
+        duration: dbTrack.duration,
+        uploadedAt: new Date(dbTrack.uploaded_at),
+        waveformData: dbTrack.waveform_data,
+        fileName: dbTrack.file_name,
+        fileSize: dbTrack.file_size,
+        playCount: dbTrack.play_count || 0
+      }
+    } else {
+      // For local storage
+      savedTrack = {
+        id: trackData.id,
+        title: trackData.title,
+        artist: trackData.artist,
+        url: finalUrl,
+        duration: trackData.duration,
+        uploadedAt: new Date(trackData.uploaded_at),
+        waveformData: trackData.waveform_data,
+        fileSize: trackData.file_size,
+        playCount: 0
       }
     }
     
     emit('upload-success', savedTrack)
+    
+    // Cleanup
+    URL.revokeObjectURL(pendingTrack.value.localUrl)
     pendingTrack.value = null
+    uploadingToSupabase.value = false
     
   } catch (error) {
     console.error('Error saving track:', error)
     alert('Có lỗi xảy ra khi lưu bài hát. Vui lòng thử lại.')
+    uploadingToSupabase.value = false
   } finally {
     isSaving.value = false
   }
 }
 
+const formatSpeed = (bytesPerSecond: number): string => {
+  if (bytesPerSecond < 1024) return `${Math.round(bytesPerSecond)} B`
+  if (bytesPerSecond < 1024 * 1024) return `${Math.round(bytesPerSecond / 1024)} KB`
+  return `${Math.round(bytesPerSecond / (1024 * 1024))} MB`
+}
+
+// UPDATED: Cancel upload - just cleanup local resources
 const cancelUpload = () => {
-  if (pendingTrack.value && !isSupabaseConnected.value) {
-    // Revoke object URL for local files
-    URL.revokeObjectURL(pendingTrack.value.url)
+  if (pendingTrack.value) {
+    URL.revokeObjectURL(pendingTrack.value.localUrl)
+    pendingTrack.value = null
   }
-  pendingTrack.value = null
 }
 </script>
 
 <style scoped>
 .upload-zone {
-  @apply border-2 border-dashed border-gray-300 dark:border-dark-300 rounded-lg p-8 text-center cursor-pointer transition-all duration-200 hover:border-soundcloud-orange hover:bg-soundcloud-orange/5;
+  @apply border-2 border-dashed border-gray-300 dark:border-dark-300 rounded-2xl p-8 text-center transition-all duration-300 hover:border-soundcloud-orange hover:bg-orange-50/50 dark:hover:bg-soundcloud-orange/10 transform hover:scale-[1.02];
 }
 
 .upload-zone.dragover {
-  @apply border-soundcloud-orange bg-soundcloud-orange/10 scale-105;
+  @apply border-soundcloud-orange bg-orange-50 dark:bg-soundcloud-orange/20 scale-[1.02] shadow-glow;
 }
 
 .glass-card {
@@ -612,18 +677,18 @@ const cancelUpload = () => {
 }
 
 .input-field {
-  @apply w-full px-3 py-2 border border-gray-300 dark:border-dark-300 rounded-md bg-white dark:bg-dark-100 text-gray-900 dark:text-dark-900 focus:ring-2 focus:ring-soundcloud-orange focus:border-transparent;
+  @apply w-full px-4 py-3 bg-white/50 dark:bg-dark-100/50 border border-gray-300 dark:border-dark-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-soundcloud-orange focus:border-transparent transition-all duration-200 backdrop-blur-sm;
 }
 
 .btn {
-  @apply px-4 py-2 rounded-md font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  @apply px-4 py-2 rounded-xl font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
 }
 
 .btn-primary {
-  @apply bg-soundcloud-orange text-white hover:bg-soundcloud-orange-light focus:ring-soundcloud-orange;
+  @apply bg-gradient-to-r from-soundcloud-orange to-soundcloud-orange-light text-white hover:shadow-glow focus:ring-soundcloud-orange;
 }
 
 .btn-secondary {
-  @apply bg-gray-200 dark:bg-dark-200 text-gray-800 dark:text-dark-800 hover:bg-gray-300 dark:hover:bg-dark-300 focus:ring-gray-500;
+  @apply bg-white dark:bg-dark-100 text-gray-700 dark:text-dark-700 border border-gray-300 dark:border-dark-300 hover:bg-gray-50 dark:hover:bg-dark-200 focus:ring-blue-500;
 }
 </style>
