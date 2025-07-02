@@ -44,6 +44,12 @@
           
           <!-- Actions -->
           <div class="flex items-center space-x-2 sm:space-x-4">
+            <!-- Performance indicator -->
+            <div v-if="isLowPowerMode || connectionType === 'slow'" class="hidden sm:flex items-center space-x-1 text-xs text-yellow-600 dark:text-yellow-400">
+              <div class="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+              <span>{{ isLowPowerMode ? 'Pin thấp' : 'Mạng chậm' }}</span>
+            </div>
+            
             <!-- Theme Toggle -->
             <button @click="toggleTheme" title="Chuyển đổi theme" class="btn-icon w-10 h-10 sm:w-16 sm:h-16">
               <SunIcon v-if="isDarkMode" class="w-5 h-5 sm:w-8 sm:h-8" />
@@ -280,10 +286,10 @@
         </div>
         
         <div v-else>
-          <!-- Grid View -->
+          <!-- Grid View with Lazy Loading -->
           <div v-if="viewMode === 'grid'" 
                class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-            <TrackCard
+            <LazyTrackCard
               v-for="track in displayedTracks"
               :key="track.id"
               :track="track"
@@ -390,9 +396,12 @@ import {
   FireIcon
 } from '@heroicons/vue/24/outline'
 import TrackItem from './components/TrackItem.vue'
-import TrackCard from './components/TrackCard.vue'
+import LazyTrackCard from './components/LazyTrackCard.vue'
 import EnhancedMusicPlayer from './components/EnhancedMusicPlayer.vue'
 import UploadComponent from './components/UploadComponent.vue'
+import { usePerformanceOptimization } from './composables/usePerformanceOptimization'
+import { useOptimizedAudio } from './composables/useOptimizedAudio'
+import { useNetworkOptimization } from './composables/useNetworkOptimization'
 import { 
   supabase, 
   getTracksFromDatabase, 
@@ -410,6 +419,11 @@ import {
 } from './lib/supabase'
 import type { Track, Notification } from './types/Track'
 
+// Performance optimization composables
+const { isLowPowerMode, connectionType, isVisible } = usePerformanceOptimization()
+const { audio, createOptimizedAudio, preloadTrack, cleanupPreloadedTracks } = useOptimizedAudio()
+const { queueRequest } = useNetworkOptimization()
+
 // State
 const tracks = ref<Track[]>([])
 const currentTrack = ref<Track | null>(null)
@@ -425,8 +439,7 @@ const showSearchSuggestions = ref(false)
 const isDarkMode = ref(false)
 const viewMode = ref<'list' | 'grid'>('list')
 const sortBy = ref('newest')
-const audio = ref<HTMLAudioElement | null>(null)
-const userFavoriteTracks = ref<string[]>([]) // Changed from favoriteTracks to userFavoriteTracks
+const userFavoriteTracks = ref<string[]>([])
 const recentlyPlayed = ref<string[]>([])
 const notifications = ref<Notification[]>([])
 const isLoading = ref(true)
@@ -448,7 +461,7 @@ const deleteKeyCheck = ref('')
 const deleteKeyError = ref(false)
 const isDeleting = ref(false)
 
-// Filter state - Updated to include 'all'
+// Filter state
 const activeFilter = ref<'all' | 'favorites' | 'trending' | null>(null)
 
 // Check if mobile
@@ -469,20 +482,20 @@ const handleSearchBlur = () => {
   hideSearchSuggestions()
 }
 
-// Filter methods - Updated
+// Filter methods
 const showAllTracks = () => {
   activeFilter.value = 'all'
-  searchQuery.value = '' // Clear search when filtering
+  searchQuery.value = ''
 }
 
 const showFavorites = () => {
   activeFilter.value = 'favorites'
-  searchQuery.value = '' // Clear search when filtering
+  searchQuery.value = ''
 }
 
 const showTrending = () => {
   activeFilter.value = 'trending'
-  searchQuery.value = '' // Clear search when filtering
+  searchQuery.value = ''
 }
 
 const clearFilter = () => {
@@ -503,7 +516,7 @@ const getFilterTitle = () => {
   }
 }
 
-// Empty state helpers - Updated
+// Empty state helpers
 const getEmptyStateTitle = () => {
   if (activeFilter.value === 'all') {
     return 'Chưa có bài hát nào'
@@ -536,20 +549,16 @@ const filteredTracks = computed(() => {
   
   // Apply active filter first
   if (activeFilter.value === 'all') {
-    // Show all tracks (no filtering)
     filtered = tracks.value
   } else if (activeFilter.value === 'favorites') {
-    // FIXED: Now filters based on user-specific favorites
     filtered = filtered.filter(track => userFavoriteTracks.value.includes(track.id))
   } else if (activeFilter.value === 'trending') {
-    // FIXED: Show only THE TOP trending track (not all tracks with plays > 0)
     const tracksWithPlays = filtered.filter(track => (track.playCount || 0) > 0)
     if (tracksWithPlays.length > 0) {
-      // Sort by play count and take only the top 1
       const topTrack = tracksWithPlays.sort((a, b) => (b.playCount || 0) - (a.playCount || 0))[0]
-      filtered = [topTrack] // Only show the single top track
+      filtered = [topTrack]
     } else {
-      filtered = [] // No tracks with plays
+      filtered = []
     }
   }
   
@@ -632,7 +641,6 @@ const checkSupabaseConnection = async () => {
     const { error } = await supabase.from('tracks').select('count').limit(1)
     isSupabaseConnected.value = !error
     
-    // Also check if user_favorites table exists
     if (isSupabaseConnected.value) {
       const favoritesTableExists = await checkUserFavoritesTableExists()
       if (!favoritesTableExists) {
@@ -696,14 +704,13 @@ const loadTracksFromLocalStorage = (): Track[] => {
 
 const saveTracksToLocalStorage = () => {
   try {
-    const localTracks = tracks.value.filter(track => !track.fileName) // Only save local tracks
+    const localTracks = tracks.value.filter(track => !track.fileName)
     localStorage.setItem('tracks', JSON.stringify(localTracks))
   } catch (error) {
     console.error('Error saving tracks to localStorage:', error)
   }
 }
 
-// IMPROVED: Load user-specific favorites with better error handling
 const loadUserFavorites = async () => {
   if (!userFingerprint.value) {
     console.log('No user fingerprint available yet')
@@ -712,15 +719,12 @@ const loadUserFavorites = async () => {
 
   try {
     if (isSupabaseConnected.value) {
-      // Try to load from Supabase first
       const favorites = await getUserFavorites(userFingerprint.value.ip, userFingerprint.value.userAgent)
       userFavoriteTracks.value = favorites
       console.log(`Loaded ${favorites.length} favorites from Supabase for user ${userFingerprint.value.ip}`)
       
-      // Save to localStorage as backup
       localStorage.setItem(`favorites_${userFingerprint.value.fingerprint}`, JSON.stringify(favorites))
     } else {
-      // Fallback to localStorage
       const savedFavorites = localStorage.getItem(`favorites_${userFingerprint.value.fingerprint}`)
       if (savedFavorites) {
         userFavoriteTracks.value = JSON.parse(savedFavorites)
@@ -730,7 +734,6 @@ const loadUserFavorites = async () => {
   } catch (error) {
     console.error('Error loading user favorites:', error)
     
-    // Always fallback to localStorage if Supabase fails
     try {
       const savedFavorites = localStorage.getItem(`favorites_${userFingerprint.value.fingerprint}`)
       if (savedFavorites) {
@@ -753,16 +756,13 @@ const loadTracks = async () => {
     let allTracks: Track[] = []
     
     if (isSupabaseConnected.value) {
-      // Load from Supabase
       const supabaseTracks = await loadTracksFromSupabase()
       allTracks = [...allTracks, ...supabaseTracks]
       showNotification('success', 'Kết nối Supabase thành công', `Đã tải ${supabaseTracks.length} bài hát từ cloud`)
       
-      // Load total users count
       totalUsers.value = await getTotalUniqueUsers()
     }
     
-    // Load from localStorage (for local tracks)
     const localTracks = loadTracksFromLocalStorage()
     allTracks = [...allTracks, ...localTracks]
     
@@ -779,9 +779,7 @@ const loadTracks = async () => {
 const startPlayTracking = (trackId: string) => {
   if (!userFingerprint.value || !isSupabaseConnected.value) return
   
-  // Record the start time
   trackPlayStartTime.value.set(trackId, Date.now())
-  
   console.log(`Started tracking play for track: ${trackId}`)
 }
 
@@ -791,12 +789,11 @@ const stopPlayTracking = async (trackId: string) => {
   const startTime = trackPlayStartTime.value.get(trackId)
   if (!startTime) return
   
-  const playDuration = (Date.now() - startTime) / 1000 // Convert to seconds
+  const playDuration = (Date.now() - startTime) / 1000
   trackPlayStartTime.value.delete(trackId)
   
   console.log(`Play duration for track ${trackId}: ${playDuration} seconds`)
   
-  // Only record if played for at least 10 seconds
   if (playDuration >= 10) {
     try {
       const result = await recordTrackPlay(
@@ -807,17 +804,14 @@ const stopPlayTracking = async (trackId: string) => {
       )
       
       if (result) {
-        // Update the track in our local state immediately
         const trackIndex = tracks.value.findIndex(t => t.id === trackId)
         if (trackIndex !== -1) {
           tracks.value[trackIndex].playCount = result.newPlayCount
-          // Force reactivity
           tracks.value = [...tracks.value]
           
           console.log(`UI updated: Track ${trackId} now has ${result.newPlayCount} plays`)
         }
         
-        // Update total users count
         totalUsers.value = await getTotalUniqueUsers()
       }
       
@@ -846,7 +840,6 @@ const handleUploadSuccess = (newTrack: Track) => {
   tracks.value.unshift(newTrack)
   showUploadModal.value = false
   
-  // Save to localStorage if it's a local track
   if (!newTrack.fileName) {
     saveTracksToLocalStorage()
   }
@@ -854,8 +847,8 @@ const handleUploadSuccess = (newTrack: Track) => {
   showNotification('success', 'Upload thành công', `${newTrack.title} đã được thêm!`)
 }
 
+// Optimized play function with smart preloading
 const playTrack = (track?: Track) => {
-  // Stop tracking previous track if any
   if (currentTrack.value && currentTrack.value.id !== track?.id) {
     stopPlayTracking(currentTrack.value.id)
   }
@@ -865,7 +858,15 @@ const playTrack = (track?: Track) => {
       currentTrack.value = track
       loadTrack(track)
       addToRecentlyPlayed(track.id)
-      startPlayTracking(track.id) // Start tracking new track
+      startPlayTracking(track.id)
+      
+      // Smart preloading for next tracks
+      if (!isLowPowerMode.value && connectionType.value !== 'slow') {
+        const currentIndex = displayedTracks.value.findIndex(t => t.id === track.id)
+        if (currentIndex < displayedTracks.value.length - 1) {
+          preloadTrack(displayedTracks.value[currentIndex + 1], 'low')
+        }
+      }
     }
   }
   
@@ -880,11 +881,13 @@ const pauseTrack = () => {
     audio.value.pause()
     isPlaying.value = false
   }
-  
-  // Don't stop tracking on pause, only on track change or stop
 }
 
 const loadTrack = (track: Track) => {
+  if (!audio.value) {
+    audio.value = createOptimizedAudio()
+  }
+  
   if (audio.value) {
     audio.value.src = track.url
     audio.value.volume = volume.value
@@ -895,7 +898,6 @@ const loadTrack = (track: Track) => {
 const nextTrack = () => {
   if (!currentTrack.value) return
   
-  // Stop tracking current track
   stopPlayTracking(currentTrack.value.id)
   
   const currentList = displayedTracks.value
@@ -912,7 +914,6 @@ const nextTrack = () => {
 const previousTrack = () => {
   if (!currentTrack.value) return
   
-  // Stop tracking current track
   stopPlayTracking(currentTrack.value.id)
   
   const currentList = displayedTracks.value
@@ -951,7 +952,6 @@ const toggleShuffle = () => {
   isShuffled.value = !isShuffled.value
 }
 
-// IMPROVED: Updated toggleFavorite with better error handling and fallbacks
 const toggleFavorite = async (trackId: string) => {
   if (!userFingerprint.value) {
     showNotification('warning', 'Không thể thêm yêu thích', 'Đang tải thông tin user...')
@@ -962,7 +962,6 @@ const toggleFavorite = async (trackId: string) => {
   
   try {
     if (isFavorited) {
-      // Remove from favorites
       if (isSupabaseConnected.value) {
         try {
           await removeFromUserFavorites(trackId, userFingerprint.value.ip)
@@ -971,11 +970,9 @@ const toggleFavorite = async (trackId: string) => {
         }
       }
       
-      // Always update local state
       userFavoriteTracks.value = userFavoriteTracks.value.filter(id => id !== trackId)
       showNotification('success', 'Đã xóa khỏi yêu thích', '')
     } else {
-      // Add to favorites
       if (isSupabaseConnected.value) {
         try {
           await addToUserFavorites(trackId, userFingerprint.value.ip, userFingerprint.value.userAgent)
@@ -984,19 +981,16 @@ const toggleFavorite = async (trackId: string) => {
         }
       }
       
-      // Always update local state
       userFavoriteTracks.value.push(trackId)
       showNotification('success', 'Đã thêm vào yêu thích', '')
     }
     
-    // Always save to localStorage as backup
     localStorage.setItem(`favorites_${userFingerprint.value.fingerprint}`, JSON.stringify(userFavoriteTracks.value))
     
   } catch (error) {
     console.error('Error toggling favorite:', error)
     showNotification('error', 'Lỗi', 'Không thể cập nhật yêu thích. Đã lưu vào bộ nhớ local.')
     
-    // Even if there's an error, try to update localStorage
     try {
       if (isFavorited) {
         userFavoriteTracks.value = userFavoriteTracks.value.filter(id => id !== trackId)
@@ -1045,7 +1039,6 @@ const cancelDelete = () => {
 const confirmDelete = async () => {
   if (!trackToDelete.value) return
   
-  // Check key-check (Phương Nam's birthday: 24082003)
   if (deleteKeyCheck.value !== '24082003') {
     deleteKeyError.value = true
     return
@@ -1057,19 +1050,14 @@ const confirmDelete = async () => {
     const track = trackToDelete.value
     
     if (track.fileName && isSupabaseConnected.value) {
-      // Delete from Supabase
       await deleteAudioFile(track.fileName)
       await deleteTrackFromDatabase(track.id)
     }
     
-    // Remove from local state
     tracks.value = tracks.value.filter(t => t.id !== track.id)
-    
-    // Update localStorage for local tracks
     saveTracksToLocalStorage()
     
     if (currentTrack.value?.id === track.id) {
-      // Stop tracking if deleting current track
       stopPlayTracking(track.id)
       currentTrack.value = null
       isPlaying.value = false
@@ -1129,7 +1117,6 @@ const setupAudioEvents = () => {
   })
   
   audio.value.addEventListener('ended', () => {
-    // Stop tracking when track ends
     if (currentTrack.value) {
       stopPlayTracking(currentTrack.value.id)
     }
@@ -1137,7 +1124,6 @@ const setupAudioEvents = () => {
     if (repeatMode.value === 'one') {
       audio.value!.currentTime = 0
       audio.value!.play()
-      // Restart tracking for repeat
       if (currentTrack.value) {
         startPlayTracking(currentTrack.value.id)
       }
@@ -1166,20 +1152,15 @@ const loadPreferences = () => {
 }
 
 onMounted(async () => {
-  audio.value = new Audio()
+  audio.value = createOptimizedAudio()
   setupAudioEvents()
   loadPreferences()
   checkMobile()
   
-  // Get user fingerprint for play tracking and favorites
   userFingerprint.value = await getUserFingerprint()
-  
   await loadTracks()
-  
-  // Load user-specific favorites after getting fingerprint and tracks
   await loadUserFavorites()
   
-  // Listen for window resize
   window.addEventListener('resize', checkMobile)
 })
 
@@ -1204,10 +1185,19 @@ watch(searchQuery, (newValue) => {
   }
 })
 
+// Pause audio when tab is not visible to save battery
+watch(isVisible, (visible) => {
+  if (!visible && isPlaying.value && !isLowPowerMode.value) {
+    // Only pause if not in low power mode (user might want to continue listening)
+    pauseTrack()
+  }
+})
+
 // Cleanup on page unload
 window.addEventListener('beforeunload', () => {
   if (currentTrack.value) {
     stopPlayTracking(currentTrack.value.id)
   }
+  cleanupPreloadedTracks()
 })
 </script>
