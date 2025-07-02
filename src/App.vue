@@ -77,7 +77,7 @@
           :class="{ 'ring-2 ring-soundcloud-orange': activeFilter === 'all' }"
         >
           <div class="text-xl sm:text-2xl font-bold gradient-text">{{ tracks.length }}</div>
-          <div class="text-xs sm:text-sm text-gray-600 dark:text-dark-600 font-medium">Tổng số bài</div>
+          <div class="text-xs sm:text-sm text-gray-600 dark:text-dark-600 font-medium">Số lượng bài hát</div>
           <div class="text-xs text-soundcloud-orange mt-1 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
             Click để xem tất cả
           </div>
