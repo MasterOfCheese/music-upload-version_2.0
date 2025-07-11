@@ -1,25 +1,26 @@
 <template>
   <div class="flex items-center space-x-2">
-    <button
+    <Button
       variant="icon"
       @click="$emit('toggle-favorite', trackId)"
       :class="isFavorite ? 'text-red-500' : 'text-gray-400 hover:text-red-500'"
     >
       <HeartIcon :class="isFavorite ? 'fill-current' : ''" class="w-5 h-5" />
-    </button>
+    </Button>
     
-    <button
+    <Button
       variant="icon"
       @click="$emit('share', track)"
       class="text-gray-400 hover:text-blue-500"
     >
       <ShareIcon class="w-5 h-5" />
-    </button>
+    </Button>
   </div>
 </template>
 
 <script setup lang="ts">
 import { HeartIcon, ShareIcon } from '@heroicons/vue/24/solid'
+import Button from '../ui/Button.vue'
 import type { Track } from '../../types/Track'
 
 interface Props {

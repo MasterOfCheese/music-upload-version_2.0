@@ -11,7 +11,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { usePerformanceOptimization } from '@/composables/usePerformanceOptimization'
 
 interface Props {
@@ -27,7 +27,14 @@ const emit = defineEmits<{
 }>()
 
 const canvasRef = ref<HTMLCanvasElement>()
-const { isMobile, isLowPowerMode } = usePerformanceOptimization()
+const { isLowPowerMode } = usePerformanceOptimization()
+
+// Local mobile detection
+const isMobile = ref(false)
+
+const checkMobile = () => {
+  isMobile.value = window.innerWidth < 768
+}
 
 // Responsive canvas dimensions
 const canvasWidth = computed(() => isMobile.value ? 300 : 600)
@@ -128,7 +135,13 @@ watch([
 ], drawWaveform, { deep: true })
 
 onMounted(() => {
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
   drawWaveform()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
 })
 </script>
 
