@@ -121,7 +121,7 @@
 
         <!-- Desktop Waveform -->
         <div class="relative">
-          <OptimizedWaveform
+          <WaveformDisplay
             :waveform-data="track.waveformData"
             :is-current="isCurrent"
             :progress="isCurrent ? (currentTime / duration) * 100 : 0"
@@ -137,7 +137,7 @@
 
 <script setup lang="ts">
 import { PlayIcon, PauseIcon, TrashIcon, HeartIcon, ShareIcon } from '@heroicons/vue/24/solid'
-import OptimizedWaveform from './OptimizedWaveform.vue'
+import WaveformDisplay from './WaveformDisplay.vue'
 import type { Track } from '../types/Track'
 
 interface Props {

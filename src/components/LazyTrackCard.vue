@@ -60,7 +60,7 @@
         <!-- Optimized Progress Bar -->
         <div class="h-8 flex items-center">
           <div class="w-full">
-            <OptimizedWaveform
+            <WaveformDisplay
               :waveform-data="track.waveformData"
               :is-current="isCurrent"
               :progress="isCurrent ? (currentTime / duration) * 100 : 0"
@@ -98,7 +98,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { PlayIcon, PauseIcon, TrashIcon, HeartIcon, ShareIcon, MusicalNoteIcon } from '@heroicons/vue/24/solid'
-import OptimizedWaveform from './OptimizedWaveform.vue'
+import WaveformDisplay from './WaveformDisplay.vue'
 import type { Track } from '../types/Track'
 
 interface Props {

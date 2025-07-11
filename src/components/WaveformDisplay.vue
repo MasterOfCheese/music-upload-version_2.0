@@ -1,63 +1,63 @@
 <template>
   <div 
     ref="waveformContainer"
-    class="soundcloud-waveform cursor-pointer"
-    :class="mini ? 'h-12' : 'h-20 sm:h-24'"
+    class="soundcloud-waveform cursor-pointer w-full"
+    :class="mini ? 'h-8' : 'h-16 sm:h-20'"
     @click="handleClick"
     @mousemove="handleMouseMove"
     @mouseleave="showHover = false"
   >
-    <!-- Background bars (unplayed) - FULL WIDTH -->
-    <div class="flex items-end justify-start h-full w-full px-2 py-2">
+    <!-- Background bars (unplayed) -->
+    <div class="flex items-end justify-start h-full w-full px-1 py-1">
       <div
         v-for="(amplitude, index) in detailedWaveformData"
         :key="`bg-${index}`"
         class="waveform-bar-bg flex-shrink-0 transition-all duration-100"
         :style="{ 
-          height: `${Math.max(amplitude * 90, mini ? 15 : 20)}%`,
-          minHeight: mini ? '4px' : '6px',
-          width: mini ? '2px' : '3px',
-          marginRight: mini ? '1px' : '1.5px'
+          height: `${Math.max(amplitude * 95, mini ? 8 : 12)}%`,
+          minHeight: mini ? '2px' : '3px',
+          width: mini ? '1px' : '2px',
+          marginRight: '1px'
         }"
       />
     </div>
     
-    <!-- Progress overlay (played portion) - FULL WIDTH CALCULATION -->
+    <!-- Progress overlay (played portion) -->
     <div
       v-if="isCurrent && progress > 0"
       class="absolute top-0 left-0 h-full overflow-hidden"
       :style="{ width: `${progress}%` }"
     >
-      <div class="flex items-end justify-start h-full w-full px-2 py-2">
+      <div class="flex items-end justify-start h-full w-full px-1 py-1">
         <div
           v-for="(amplitude, index) in detailedWaveformData"
           :key="`progress-${index}`"
           class="waveform-bar-progress flex-shrink-0 transition-all duration-100"
           :style="{ 
-            height: `${Math.max(amplitude * 90, mini ? 15 : 20)}%`,
-            minHeight: mini ? '4px' : '6px',
-            width: mini ? '2px' : '3px',
-            marginRight: mini ? '1px' : '1.5px'
+            height: `${Math.max(amplitude * 95, mini ? 8 : 12)}%`,
+            minHeight: mini ? '2px' : '3px',
+            width: mini ? '1px' : '2px',
+            marginRight: '1px'
           }"
         />
       </div>
     </div>
     
-    <!-- Hover indicator - FULL WIDTH CALCULATION -->
+    <!-- Hover indicator -->
     <div
       v-if="showHover && !mini"
       class="absolute top-0 h-full w-0.5 bg-white/80 pointer-events-none rounded-full shadow-lg"
       :style="{ left: `${hoverPosition}%` }"
     />
     
-    <!-- Current time indicator - FULL WIDTH CALCULATION -->
+    <!-- Current time indicator -->
     <div
       v-if="isCurrent && isPlaying"
       class="absolute top-0 h-full w-0.5 bg-white pointer-events-none rounded-full shadow-lg animate-pulse"
       :style="{ left: `${progress}%` }"
     />
     
-    <!-- Time display overlay for desktop only -->
+    <!-- Time display overlay -->
     <div v-if="!mini && !isMobile" class="absolute bottom-1 right-2 text-xs text-gray-500 dark:text-dark-500 font-mono">
       {{ formatTime(duration) }}
     </div>
@@ -101,14 +101,8 @@ const checkMobile = () => {
 // Generate more detailed waveform data that spans FULL WIDTH
 const detailedWaveformData = computed(() => {
   const originalData = props.waveformData
-  // Increase bar count to fill the entire width properly
-  let targetLength: number
-  
-  if (props.mini) {
-    targetLength = isMobile.value ? 80 : 120 // Fewer bars but thicker for mini
-  } else {
-    targetLength = isMobile.value ? 150 : 250 // Fewer bars but thicker for desktop
-  }
+  // Tăng số lượng thanh để giống SoundCloud
+  const targetLength = props.mini ? 200 : 400
   
   const detailedData: number[] = []
   
@@ -117,7 +111,7 @@ const detailedWaveformData = computed(() => {
     const baseAmplitude = originalData[originalIndex] || 0.1
     
     // Add some variation to make it look more realistic
-    const variation = (Math.random() - 0.5) * 0.2
+    const variation = (Math.random() - 0.5) * 0.3
     const amplitude = Math.max(0.05, Math.min(1, baseAmplitude + variation))
     
     detailedData.push(amplitude)
@@ -130,7 +124,6 @@ const handleClick = (event: MouseEvent) => {
   if (!waveformContainer.value) return
   
   const rect = waveformContainer.value.getBoundingClientRect()
-  // FIXED: Now calculates percentage based on FULL container width
   const percentage = ((event.clientX - rect.left) / rect.width) * 100
   emit('seek', Math.max(0, Math.min(100, percentage)))
 }
@@ -139,7 +132,6 @@ const handleMouseMove = (event: MouseEvent) => {
   if (!waveformContainer.value || props.mini || isMobile.value) return
   
   const rect = waveformContainer.value.getBoundingClientRect()
-  // FIXED: Now calculates hover position based on FULL container width
   hoverPosition.value = ((event.clientX - rect.left) / rect.width) * 100
   showHover.value = true
 }
@@ -165,8 +157,6 @@ onUnmounted(() => {
 .soundcloud-waveform {
   @apply relative rounded-lg overflow-hidden;
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  /* ENSURE FULL WIDTH */
-  width: 100% !important;
 }
 
 .dark .soundcloud-waveform {
@@ -174,50 +164,25 @@ onUnmounted(() => {
 }
 
 .waveform-bar-bg {
-  @apply rounded-sm shadow-sm;
+  @apply rounded-sm;
   background: rgba(156, 163, 175, 0.4);
-  border: 0.5px solid rgba(156, 163, 175, 0.2);
 }
 
 .dark .waveform-bar-bg {
   background: rgba(107, 114, 128, 0.4);
-  border: 0.5px solid rgba(107, 114, 128, 0.2);
 }
 
 .waveform-bar-progress {
-  @apply rounded-sm shadow-md;
+  @apply rounded-sm;
   background: linear-gradient(to top, #FF5500, #FF7733);
   box-shadow: 0 0 4px rgba(255, 85, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.2);
-  border: 0.5px solid rgba(255, 85, 0, 0.3);
 }
 
-/* Mobile optimizations */
-@media (max-width: 640px) {
-  .soundcloud-waveform {
-    @apply rounded-lg;
-    /* ENSURE FULL WIDTH ON MOBILE TOO */
-    width: 100% !important;
-    min-height: 48px;
-  }
-  
-  .waveform-bar-bg,
-  .waveform-bar-progress {
-    @apply rounded-sm;
-  }
+.soundcloud-waveform:hover .waveform-bar-bg {
+  background: rgba(156, 163, 175, 0.6);
 }
 
-/* Hover effects for desktop only */
-@media (min-width: 641px) {
-  .soundcloud-waveform:hover .waveform-bar-bg {
-    background: rgba(156, 163, 175, 0.5);
-  }
-
-  .dark .soundcloud-waveform:hover .waveform-bar-bg {
-    background: rgba(107, 114, 128, 0.5);
-  }
-  
-  .waveform-bar-progress:hover {
-    filter: brightness(1.1);
-  }
+.dark .soundcloud-waveform:hover .waveform-bar-bg {
+  background: rgba(107, 114, 128, 0.6);
 }
 </style>
