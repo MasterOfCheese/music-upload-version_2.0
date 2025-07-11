@@ -2,22 +2,22 @@
   <div 
     ref="waveformContainer"
     class="soundcloud-waveform cursor-pointer"
-    :class="mini ? 'h-8' : 'h-16 sm:h-20'"
+    :class="mini ? 'h-12' : 'h-20 sm:h-24'"
     @click="handleClick"
     @mousemove="handleMouseMove"
     @mouseleave="showHover = false"
   >
     <!-- Background bars (unplayed) - FULL WIDTH -->
-    <div class="flex items-end justify-start h-full w-full px-1 py-1">
+    <div class="flex items-end justify-start h-full w-full px-2 py-2">
       <div
         v-for="(amplitude, index) in detailedWaveformData"
         :key="`bg-${index}`"
         class="waveform-bar-bg flex-shrink-0 transition-all duration-100"
         :style="{ 
-          height: `${Math.max(amplitude * 85, mini ? 8 : 12)}%`,
-          minHeight: mini ? '2px' : '3px',
-          width: mini ? '1px' : '1.5px',
-          marginRight: mini ? '0.5px' : '1px'
+          height: `${Math.max(amplitude * 90, mini ? 15 : 20)}%`,
+          minHeight: mini ? '4px' : '6px',
+          width: mini ? '2px' : '3px',
+          marginRight: mini ? '1px' : '1.5px'
         }"
       />
     </div>
@@ -28,16 +28,16 @@
       class="absolute top-0 left-0 h-full overflow-hidden"
       :style="{ width: `${progress}%` }"
     >
-      <div class="flex items-end justify-start h-full w-full px-1 py-1">
+      <div class="flex items-end justify-start h-full w-full px-2 py-2">
         <div
           v-for="(amplitude, index) in detailedWaveformData"
           :key="`progress-${index}`"
           class="waveform-bar-progress flex-shrink-0 transition-all duration-100"
           :style="{ 
-            height: `${Math.max(amplitude * 85, mini ? 8 : 12)}%`,
-            minHeight: mini ? '2px' : '3px',
-            width: mini ? '1px' : '1.5px',
-            marginRight: mini ? '0.5px' : '1px'
+            height: `${Math.max(amplitude * 90, mini ? 15 : 20)}%`,
+            minHeight: mini ? '4px' : '6px',
+            width: mini ? '2px' : '3px',
+            marginRight: mini ? '1px' : '1.5px'
           }"
         />
       </div>
@@ -105,9 +105,9 @@ const detailedWaveformData = computed(() => {
   let targetLength: number
   
   if (props.mini) {
-    targetLength = isMobile.value ? 120 : 180 // More bars for mini
+    targetLength = isMobile.value ? 80 : 120 // Fewer bars but thicker for mini
   } else {
-    targetLength = isMobile.value ? 200 : 400 // Much more bars for desktop to fill width
+    targetLength = isMobile.value ? 150 : 250 // Fewer bars but thicker for desktop
   }
   
   const detailedData: number[] = []
@@ -174,31 +174,35 @@ onUnmounted(() => {
 }
 
 .waveform-bar-bg {
-  @apply rounded-sm;
-  background: rgba(156, 163, 175, 0.3);
+  @apply rounded-sm shadow-sm;
+  background: rgba(156, 163, 175, 0.4);
+  border: 0.5px solid rgba(156, 163, 175, 0.2);
 }
 
 .dark .waveform-bar-bg {
-  background: rgba(107, 114, 128, 0.3);
+  background: rgba(107, 114, 128, 0.4);
+  border: 0.5px solid rgba(107, 114, 128, 0.2);
 }
 
 .waveform-bar-progress {
-  @apply rounded-sm;
+  @apply rounded-sm shadow-md;
   background: linear-gradient(to top, #FF5500, #FF7733);
-  box-shadow: 0 0 2px rgba(255, 85, 0, 0.3);
+  box-shadow: 0 0 4px rgba(255, 85, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.2);
+  border: 0.5px solid rgba(255, 85, 0, 0.3);
 }
 
 /* Mobile optimizations */
 @media (max-width: 640px) {
   .soundcloud-waveform {
-    @apply rounded-md;
+    @apply rounded-lg;
     /* ENSURE FULL WIDTH ON MOBILE TOO */
     width: 100% !important;
+    min-height: 48px;
   }
   
   .waveform-bar-bg,
   .waveform-bar-progress {
-    @apply rounded-none;
+    @apply rounded-sm;
   }
 }
 
