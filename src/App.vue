@@ -759,6 +759,12 @@ const loadTracks = async () => {
       const supabaseTracks = await loadTracksFromSupabase()
       allTracks = [...allTracks, ...supabaseTracks]
       
+      if (supabaseTracks.length > 0) {
+      
+      if (supabaseTracks.length > 0) {
+        showNotification('success', 'Kết nối Supabase thành công', `Đã tải ${supabaseTracks.length} bài hát từ cloud`)
+      }
+      
       totalUsers.value = await getTotalUniqueUsers()
     }
     

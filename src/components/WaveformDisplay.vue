@@ -1,131 +1,137 @@
 <template>
   <div 
     ref="waveformContainer"
-    :class="[
-      'relative bg-gray-100 rounded-md overflow-hidden cursor-pointer transition-all duration-200',
-      mini ? 'h-8' : 'h-16 sm:h-20',
-      'px-1 py-1'
-    ]"
+    class="relative bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer transition-all duration-200 hover:bg-gray-200 dark:hover:bg-gray-700"
+    :class="mini ? 'h-8' : 'h-16'"
     @click="handleClick"
     @mousemove="handleMouseMove"
-    @mouseleave="handleMouseLeave"
+    @mouseleave="showHover = false"
   >
     <!-- Waveform bars -->
-    <div class="flex items-end justify-center h-full gap-px">
+    <div class="flex items-end justify-start h-full px-1 py-1">
       <div
-        v-for="(bar, index) in waveformData"
+        v-for="(amplitude, index) in displayWaveformData"
         :key="index"
+        class="waveform-bar flex-shrink-0 transition-all duration-100 rounded-sm"
         :class="[
-          'transition-all duration-75',
-          index <= progressIndex ? 'bg-orange-500' : 'bg-gray-300'
+          index <= progressIndex ? 'bg-soundcloud-orange' : 'bg-gray-300 dark:bg-gray-600',
+          { 'playing': isPlaying && isCurrent && index <= progressIndex }
         ]"
-        :style="{
-          height: `${bar}%`,
+        :style="{ 
+          height: `${Math.max(amplitude * 85, mini ? 8 : 12)}%`,
           width: mini ? '1px' : '2px',
-          minHeight: mini ? '2px' : '4px'
+          marginRight: '1px'
         }"
       />
     </div>
-
-    <!-- Progress overlay -->
-    <div
-      v-if="progress > 0"
-      class="absolute top-0 left-0 h-full bg-orange-500 bg-opacity-20 pointer-events-none transition-all duration-100"
-      :style="{ width: `${progress * 100}%` }"
-    />
-
+    
     <!-- Hover indicator -->
     <div
-      v-if="hoverPosition !== null"
-      class="absolute top-0 w-0.5 h-full bg-orange-600 pointer-events-none opacity-75"
+      v-if="showHover"
+      class="absolute top-0 h-full w-0.5 bg-soundcloud-orange-light pointer-events-none"
       :style="{ left: `${hoverPosition}%` }"
     />
-
-    <!-- Time display on hover -->
+    
+    <!-- Progress indicator -->
     <div
-      v-if="hoverTime !== null"
-      class="absolute -top-8 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded pointer-events-none z-10"
-      :style="{ left: `${hoverPosition}%`, transform: 'translateX(-50%)' }"
-    >
-      {{ formatTime(hoverTime) }}
+      v-if="isCurrent && progress > 0"
+      class="absolute top-0 h-full w-0.5 bg-white pointer-events-none shadow-lg"
+      :style="{ left: `${progress}%` }"
+    />
+    
+    <!-- Time display -->
+    <div v-if="!mini && duration > 0" class="absolute bottom-1 right-2 text-xs text-gray-500 dark:text-gray-400 font-mono">
+      {{ formatTime(duration) }}
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed } from 'vue'
 
 interface Props {
-  progress?: number
-  duration?: number
+  waveformData: number[]
+  isCurrent: boolean
+  progress: number
   mini?: boolean
-  waveformData?: number[]
+  isPlaying?: boolean
+  duration?: number
+}
+
+interface Emits {
+  (e: 'seek', percentage: number): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  progress: 0,
-  duration: 0,
   mini: false,
-  waveformData: () => []
+  isPlaying: false,
+  duration: 0
 })
 
-const emit = defineEmits<{
-  seek: [position: number]
-}>()
+const emit = defineEmits<Emits>()
 
 const waveformContainer = ref<HTMLElement>()
-const hoverPosition = ref<number | null>(null)
-const hoverTime = ref<number | null>(null)
+const showHover = ref(false)
+const hoverPosition = ref(0)
 
-// Generate waveform data if not provided
-const waveformData = computed(() => {
-  if (props.waveformData.length > 0) {
-    return props.waveformData
+// Generate detailed waveform data
+const displayWaveformData = computed(() => {
+  const originalData = props.waveformData
+  if (!originalData || originalData.length === 0) {
+    // Generate default waveform if no data
+    const barCount = props.mini ? 100 : 200
+    return Array.from({ length: barCount }, () => Math.random() * 0.8 + 0.2)
   }
   
-  // Generate random waveform data
-  const barCount = props.mini ? 200 : 400
-  return Array.from({ length: barCount }, () => {
-    const base = Math.random() * 0.95 + 0.05 // 5% to 100%
-    const variation = Math.random() * 0.3 - 0.15 // ±15% variation
-    return Math.max(5, Math.min(100, (base + variation) * 100))
-  })
+  const targetLength = props.mini ? 100 : 200
+  const sampledData: number[] = []
+  
+  for (let i = 0; i < targetLength; i++) {
+    const originalIndex = Math.floor((i / targetLength) * originalData.length)
+    const amplitude = originalData[originalIndex] || 0.3
+    sampledData.push(amplitude)
+  }
+  
+  return sampledData
 })
 
-// Calculate which bar should be highlighted based on progress
+// Calculate progress index
 const progressIndex = computed(() => {
-  return Math.floor(props.progress * waveformData.value.length)
+  return Math.floor((props.progress / 100) * displayWaveformData.value.length)
 })
 
 const handleClick = (event: MouseEvent) => {
   if (!waveformContainer.value) return
   
   const rect = waveformContainer.value.getBoundingClientRect()
-  const clickX = event.clientX - rect.left
-  const position = clickX / rect.width
-  
-  emit('seek', Math.max(0, Math.min(1, position)))
+  const percentage = ((event.clientX - rect.left) / rect.width) * 100
+  emit('seek', Math.max(0, Math.min(100, percentage)))
 }
 
 const handleMouseMove = (event: MouseEvent) => {
-  if (!waveformContainer.value) return
+  if (!waveformContainer.value || props.mini) return
   
   const rect = waveformContainer.value.getBoundingClientRect()
-  const mouseX = event.clientX - rect.left
-  const position = (mouseX / rect.width) * 100
-  
-  hoverPosition.value = Math.max(0, Math.min(100, position))
-  hoverTime.value = (hoverPosition.value / 100) * props.duration
-}
-
-const handleMouseLeave = () => {
-  hoverPosition.value = null
-  hoverTime.value = null
+  hoverPosition.value = ((event.clientX - rect.left) / rect.width) * 100
+  showHover.value = true
 }
 
 const formatTime = (seconds: number): string => {
+  if (!seconds || isNaN(seconds)) return '0:00'
   const mins = Math.floor(seconds / 60)
   const secs = Math.floor(seconds % 60)
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
 </script>
+
+<style scoped>
+.waveform-bar.playing {
+  animation: waveform-pulse 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes waveform-pulse {
+  0% { transform: scaleY(1); }
+  100% { transform: scaleY(1.1); }
+}
+</style>
+</template>
