@@ -760,6 +760,7 @@ const loadTracks = async () => {
       allTracks = [...allTracks, ...supabaseTracks]
       
       if (supabaseTracks.length > 0) {
+      }
       
       if (supabaseTracks.length > 0) {
       }
