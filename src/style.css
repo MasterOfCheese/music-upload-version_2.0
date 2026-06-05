@@ -78,7 +78,7 @@ button.flex-shrink-0.w-14.h-14.bg-gradient-to-br.from-soundcloud-orange.to-sound
   }
   
   .upload-zone {
-    @apply border-2 border-dashed border-gray-300 dark:border-dark-300 rounded-2xl p-8 text-center transition-all duration-300 hover:border-soundcloud-orange hover:bg-orange-50/50 dark:hover:bg-soundcloud-orange/10 transform hover:scale-[1.02];
+    @apply border-2 border-dashed border-gray-300 dark:border-dark-300 rounded-2xl p-8 text-center transition-all duration-300 hover:border-soundcloud-orange hover:bg-orange-50/50 dark:hover:bg-soundcloud-orange/10 transform hover:scale-[1.02] cursor-pointer;
   }
   
   .upload-zone.dragover {
