@@ -1,9 +1,7 @@
 import { ref } from 'vue'
-import { 
-  getUserFingerprint, 
-  recordTrackPlay, 
-  getTotalUniqueUsers,
-  updateTrackPlayCount
+import {
+  getUserFingerprint,
+  recordTrackPlay
 } from '../lib/supabase'
 
 export function usePlayTracking() {

@@ -142,7 +142,7 @@ interface Emits {
   (e: 'share', track: Track): void
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const onSeek = (time: number) => {

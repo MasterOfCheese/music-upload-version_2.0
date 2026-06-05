@@ -308,7 +308,7 @@ export const getTotalUniqueUsers = async () => {
 }
 
 // USER FAVORITES FUNCTIONS - IMPROVED WITH BETTER ERROR HANDLING
-export const getUserFavorites = async (userIp: string, userAgent: string) => {
+export const getUserFavorites = async (userIp: string, _userAgent: string) => {
   try {
     console.log(`Getting favorites for user IP: ${userIp}`)
     

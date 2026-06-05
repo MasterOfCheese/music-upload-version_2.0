@@ -27,13 +27,13 @@ interface Emits {
   (e: 'click', event: MouseEvent): void
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   variant: 'primary',
   size: 'md',
   disabled: false
 })
 
-const emit = defineEmits<Emits>()
+defineEmits<Emits>()
 
 const variantClasses = {
   primary: 'bg-gradient-to-r from-soundcloud-orange to-soundcloud-orange-light text-white hover:shadow-glow focus:ring-soundcloud-orange',
