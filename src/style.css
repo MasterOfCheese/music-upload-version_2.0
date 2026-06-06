@@ -64,8 +64,8 @@ button.flex-shrink-0.w-14.h-14.bg-gradient-to-br.from-soundcloud-orange.to-sound
   }
 
   .glass-card {
-    @apply bg-white/10 dark:bg-dark-100/10 backdrop-blur-md rounded-2xl border border-white/20 dark:border-dark-200/20 shadow-glass;
-  }
+  @apply bg-white dark:bg-dark-100 rounded-2xl border border-gray-200 dark:border-dark-200 shadow-glass;
+}
   
   .soundcloud-waveform {
     @apply relative rounded-lg overflow-hidden transition-all duration-300;
