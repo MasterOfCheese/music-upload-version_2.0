@@ -218,7 +218,8 @@
 import { ref, onMounted } from 'vue'
 import { CloudArrowUpIcon, MusicalNoteIcon, ExclamationTriangleIcon, InformationCircleIcon } from '@heroicons/vue/24/outline'
 import { supabase, uploadAudioFile, getAudioFileUrl, saveTrackToDatabase, checkStorageQuota } from '../lib/supabase'
-import type { Track, DatabaseTrack } from '../types/Track'
+import { useAuth } from '../composables/useAuth'
+import type { Track } from '../types/Track'
 
 interface UploadingFile {
   name: string
@@ -249,6 +250,7 @@ interface Emits {
 }
 
 const emit = defineEmits<Emits>()
+const { user: authUser } = useAuth()
 
 // Cập nhật giới hạn kích thước file theo thực tế của Supabase
 const supabaseMaxSizeMB = ref(50) // Supabase Free tier limit: 50MB per file
@@ -499,23 +501,25 @@ const saveTrack = async () => {
       title: pendingTrack.value.title,
       artist: pendingTrack.value.artist,
       url: pendingTrack.value.url,
-      duration: Math.floor(pendingTrack.value.duration), // Làm tròn xuống để đảm bảo số nguyên
+      duration: Math.floor(pendingTrack.value.duration),
       uploadedAt: new Date(),
       waveformData: generateWaveformData(),
       fileName: pendingTrack.value.fileName,
-      fileSize: Math.floor(pendingTrack.value.file.size) // Đảm bảo fileSize là số nguyên
+      fileSize: Math.floor(pendingTrack.value.file.size),
+      userId: authUser.value?.id || undefined
     };
 
     if (isSupabaseConnected.value && pendingTrack.value.fileName) {
-      const dbTrack: Omit<DatabaseTrack, 'created_at' | 'updated_at'> = {
+      const dbTrack: any = {
         id: trackData.id,
         title: trackData.title,
         artist: trackData.artist,
         file_name: pendingTrack.value.fileName,
-        duration: Math.floor(trackData.duration), // Đảm bảo số nguyên
-        file_size: Math.floor(trackData.fileSize || 0), // Đảm bảo số nguyên
+        duration: Math.floor(trackData.duration),
+        file_size: Math.floor(trackData.fileSize || 0),
         waveform_data: trackData.waveformData,
-        uploaded_at: trackData.uploadedAt.toISOString()
+        uploaded_at: trackData.uploadedAt.toISOString(),
+        user_id: authUser.value?.id || null
       };
 
       await saveTrackToDatabase(dbTrack);

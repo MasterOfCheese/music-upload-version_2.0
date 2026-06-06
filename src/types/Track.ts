@@ -6,10 +6,11 @@ export interface Track {
   duration: number
   uploadedAt: Date
   waveformData: number[]
-  fileName?: string // Thêm để lưu tên file trong storage
-  fileSize?: number // Thêm để lưu kích thước file
-  playCount?: number // Thêm số lần play
-  lastPlayedAt?: Date // Thêm thời gian play gần nhất
+  fileName?: string
+  fileSize?: number
+  playCount?: number
+  lastPlayedAt?: Date
+  userId?: string
 }
 
 export interface Notification {
@@ -33,4 +34,5 @@ export interface DatabaseTrack {
   last_played_at?: string
   created_at?: string
   updated_at?: string
+  user_id?: string | null
 }
