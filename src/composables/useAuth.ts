@@ -91,6 +91,24 @@ export function useAuth() {
     }
   }
 
+  const signInWithOAuth = async (provider: 'google' | 'github' | 'facebook') => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: window.location.origin
+        }
+      })
+
+      if (error) throw error
+
+      return { success: true }
+    } catch (error: any) {
+      console.error('Error signing in with OAuth:', error)
+      return { success: false, error: error.message }
+    }
+  }
+
   const signOut = async () => {
     try {
       await supabase.auth.signOut()
@@ -147,6 +165,7 @@ export function useAuth() {
     username,
     signUp,
     signIn,
+    signInWithOAuth,
     signOut,
     updateProfile,
     fetchProfile,
