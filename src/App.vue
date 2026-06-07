@@ -65,6 +65,12 @@
               <span class="sm:hidden">+</span>
             </button>
 
+            <!-- Albums Button -->
+            <button @click="navigateTo('albums')" class="btn bg-transparent text-gray-600 dark:text-dark-600 hover:bg-gray-100 dark:hover:bg-dark-200 focus:ring-gray-500 px-3 py-2 sm:px-4 text-sm sm:text-base flex items-center gap-1">
+              <MusicalNoteIcon class="w-4 h-4 sm:w-5 sm:h-5" />
+              <span class="hidden sm:inline">Albums</span>
+            </button>
+
             <!-- User Menu -->
             <div v-if="isLoggedIn" class="relative" ref="userMenuRef">
               <button @click="showUserMenu = !showUserMenu" class="flex items-center space-x-2 hover:opacity-80 transition-opacity">
@@ -124,6 +130,45 @@
         @view-profile="openProfile"
         @profile-updated="onProfileUpdated"
       />
+
+      <!-- Albums View -->
+      <template v-else-if="currentView === 'albums'">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-bold gradient-text">Albums</h2>
+            <p class="text-sm text-gray-500 dark:text-dark-500 mt-1">Khám phá các album âm nhạc</p>
+          </div>
+          <button v-if="isLoggedIn" @click="showCreateAlbumModal = true" class="btn btn-primary text-sm px-4 py-2 flex items-center gap-2">
+            <PlusIcon class="w-4 h-4" />
+            Tạo album
+          </button>
+        </div>
+        <AlbumList
+          :albums="albumState.albums.value"
+          :loading="albumState.loading.value"
+          @view-album="(id) => navigateTo('album-detail', undefined, id)"
+        />
+      </template>
+
+      <!-- Album Detail View -->
+      <template v-else-if="currentView === 'album-detail' && viewingAlbumId">
+        <AlbumDetail
+          :album="albumState.currentAlbum.value"
+          :album-tracks="albumState.currentAlbum.value?.tracks || []"
+          :all-tracks="tracks"
+          :loading="albumState.loading.value"
+          @play-track="playAlbumTrack"
+          @play-all="playAllAlbumTracks"
+          @add-track="handleAddTrackToAlbum"
+          @remove-track="handleRemoveTrackFromAlbum"
+          @delete-album="handleDeleteAlbum"
+          @edit-album="handleEditAlbum"
+        />
+        <button @click="navigateTo('albums')" class="btn btn-ghost text-sm mt-6 flex items-center gap-1">
+          <ArrowLeftIcon class="w-4 h-4" />
+          Quay lại Albums
+        </button>
+      </template>
 
       <!-- Home View -->
       <template v-else>
@@ -281,6 +326,7 @@
                 @seek="seekTo"
                 @toggle-favorite="toggleFavorite"
                 @share="shareTrack"
+                @add-to-album="openAddToAlbum"
               />
             </div>
           </div>
@@ -329,6 +375,24 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- Create Album Modal -->
+    <CreateAlbumModal
+      :visible="showCreateAlbumModal"
+      :all-tracks="tracks"
+      @close="showCreateAlbumModal = false"
+      @create="handleCreateAlbum"
+    />
+
+    <!-- Add To Album Modal -->
+    <AddToAlbumModal
+      :visible="showAddToAlbumModal"
+      :track-id="addToAlbumTrackId"
+      :user-albums="albumState.albums.value.filter(a => a.userId === authState.user.value?.id)"
+      @close="showAddToAlbumModal = false"
+      @add-to-album="handleAddTrackToAlbum"
+      @create-album="showAddToAlbumModal = false; showCreateAlbumModal = true"
+    />
 
     <!-- Delete Confirmation Modal -->
     <Teleport to="body">
@@ -418,7 +482,9 @@ import {
   HeartIcon,
   FireIcon,
   UserIcon,
-  ArrowRightOnRectangleIcon
+  ArrowRightOnRectangleIcon,
+  ArrowLeftIcon,
+  PlusIcon
 } from '@heroicons/vue/24/outline'
 import TrackItem from './components/TrackItem.vue'
 import TrackCard from './components/TrackCard.vue'
@@ -439,18 +505,31 @@ import {
   addToUserFavorites,
   removeFromUserFavorites,
   checkUserFavoritesTableExists,
-  searchProfiles
+  searchProfiles,
+  getTracksFavoriteCounts
 } from './lib/supabase'
 import { useAuth } from './composables/useAuth'
+import { useAlbums } from './composables/useAlbums'
 import type { Track, Notification } from './types/Track'
 import type { Profile } from './types/Profile'
+import AlbumList from './components/album/AlbumList.vue'
+import AlbumDetail from './components/album/AlbumDetail.vue'
+import CreateAlbumModal from './components/album/CreateAlbumModal.vue'
+import AddToAlbumModal from './components/album/AddToAlbumModal.vue'
 
 // Auth
 const authState = useAuth()
 const isLoggedIn = computed(() => authState.isLoggedIn.value)
 
+// Albums
+const albumState = useAlbums()
+const showCreateAlbumModal = ref(false)
+const showAddToAlbumModal = ref(false)
+const addToAlbumTrackId = ref('')
+const viewingAlbumId = ref<string | null>(null)
+
 // View state
-const currentView = ref<'home' | 'profile'>('home')
+const currentView = ref<'home' | 'profile' | 'albums' | 'album-detail'>('home')
 const viewingUserId = ref<string | null>(null)
 const showAuthModal = ref(false)
 const showUserMenu = ref(false)
@@ -495,13 +574,24 @@ const isDeleting = ref(false)
 const activeFilter = ref<'all' | 'favorites' | 'trending' | null>(null)
 
 // Navigation
-const navigateTo = (view: 'home' | 'profile', userId?: string) => {
+const navigateTo = (view: 'home' | 'profile' | 'albums' | 'album-detail', userId?: string, albumId?: string) => {
   if (view === 'home') {
     currentView.value = 'home'
     viewingUserId.value = null
+    viewingAlbumId.value = null
   } else if (view === 'profile' && userId) {
     currentView.value = 'profile'
     viewingUserId.value = userId
+    viewingAlbumId.value = null
+  } else if (view === 'albums') {
+    currentView.value = 'albums'
+    viewingUserId.value = null
+    viewingAlbumId.value = null
+  } else if (view === 'album-detail' && albumId) {
+    currentView.value = 'album-detail'
+    viewingAlbumId.value = albumId
+    viewingUserId.value = null
+    loadAlbumDetail(albumId)
   }
   showUserMenu.value = false
 }
@@ -690,6 +780,7 @@ const loadTracksFromSupabase = async () => {
           fileName: dbTrack.file_name,
           fileSize: dbTrack.file_size,
           playCount: dbTrack.play_count || 0,
+          favoriteCount: dbTrack.favorite_count || 0,
           userId: dbTrack.user_id || undefined
         })
       } catch (error) {
@@ -947,6 +1038,16 @@ const toggleFavorite = async (trackId: string) => {
       userFavoriteTracks.value.push(trackId)
       showNotification('success', 'Đã thêm vào yêu thích', '')
     }
+
+    // Refresh favorite count for this track from DB
+    if (isSupabaseConnected.value) {
+      const countsMap = await getTracksFavoriteCounts([trackId])
+      const trackIdx = tracks.value.findIndex(t => t.id === trackId)
+      if (trackIdx !== -1 && countsMap[trackId] !== undefined) {
+        tracks.value[trackIdx].favoriteCount = countsMap[trackId]
+        tracks.value = [...tracks.value]
+      }
+    }
   } catch (error) {
     console.error('Error toggling favorite:', error)
     showNotification('error', 'Lỗi', 'Không thể cập nhật yêu thích')
@@ -1073,6 +1174,121 @@ const loadPreferences = () => {
   if (savedRecentlyPlayed) recentlyPlayed.value = JSON.parse(savedRecentlyPlayed)
 }
 
+// Load favorite counts for all tracks
+const loadFavoriteCounts = async () => {
+  if (!isSupabaseConnected.value || tracks.value.length === 0) return
+  try {
+    const trackIds = tracks.value.map(t => t.id)
+    const countsMap = await getTracksFavoriteCounts(trackIds)
+    tracks.value.forEach(track => {
+      if (countsMap[track.id] !== undefined) {
+        track.favoriteCount = countsMap[track.id]
+      }
+    })
+    tracks.value = [...tracks.value]
+  } catch (error) {
+    console.error('Error loading favorite counts:', error)
+  }
+}
+
+// Album handlers
+const loadAlbumDetail = async (albumId: string) => {
+  await albumState.loadAlbumDetail(albumId)
+}
+
+const handleCreateAlbum = async (title: string, description: string, trackIds: string[]) => {
+  const result = await albumState.createAlbum(title, description || undefined)
+  if (result.success && result.album) {
+    showCreateAlbumModal.value = false
+    showNotification('success', 'Tạo album thành công', `"${title}" đã được tạo`)
+
+    // Add selected tracks
+    if (trackIds.length > 0) {
+      for (let i = 0; i < trackIds.length; i++) {
+        await albumState.addTrack(result.album.id, trackIds[i], i)
+      }
+    }
+
+    // Reload albums
+    await albumState.loadAllAlbums()
+  } else {
+    showNotification('error', 'Lỗi tạo album', result.error || 'Không thể tạo album')
+  }
+}
+
+const handleDeleteAlbum = async (albumId: string) => {
+  const result = await albumState.removeAlbum(albumId)
+  if (result.success) {
+    showNotification('success', 'Đã xóa album', '')
+    navigateTo('albums')
+    await albumState.loadAllAlbums()
+  } else {
+    showNotification('error', 'Lỗi xóa album', result.error || 'Không thể xóa album')
+  }
+}
+
+const handleEditAlbum = async (albumId: string, updates: { title?: string; description?: string }) => {
+  const result = await albumState.editAlbum(albumId, updates)
+  if (result.success) {
+    showNotification('success', 'Đã cập nhật album', '')
+    await albumState.loadAlbumDetail(albumId)
+  } else {
+    showNotification('error', 'Lỗi cập nhật album', result.error || '')
+  }
+}
+
+const handleAddTrackToAlbum = async (albumId: string, trackId: string) => {
+  const result = await albumState.addTrack(albumId, trackId)
+  if (result.success) {
+    showAddToAlbumModal.value = false
+    showNotification('success', 'Đã thêm vào album', '')
+    if (viewingAlbumId.value) {
+      await albumState.loadAlbumDetail(viewingAlbumId.value)
+    }
+    await albumState.loadAllAlbums()
+  } else {
+    showNotification('error', 'Lỗi', result.error || 'Không thể thêm vào album')
+  }
+}
+
+const handleRemoveTrackFromAlbum = async (albumId: string, trackId: string) => {
+  const result = await albumState.removeTrack(albumId, trackId)
+  if (result.success) {
+    showNotification('success', 'Đã xóa khỏi album', '')
+    await albumState.loadAlbumDetail(albumId)
+    await albumState.loadAllAlbums()
+  } else {
+    showNotification('error', 'Lỗi', result.error || '')
+  }
+}
+
+const playAlbumTrack = (trackId: string) => {
+  const track = tracks.value.find(t => t.id === trackId)
+  if (track) playTrack(track)
+}
+
+const playAllAlbumTracks = (trackIds: string[]) => {
+  const albumTracks = trackIds
+    .map(id => tracks.value.find(t => t.id === id))
+    .filter(Boolean) as Track[]
+  if (albumTracks.length > 0) {
+    playTrack(albumTracks[0])
+  }
+}
+
+const openAddToAlbum = (trackId: string) => {
+  if (!isLoggedIn.value) {
+    showAuthModal.value = true
+    return
+  }
+  addToAlbumTrackId.value = trackId
+  // Reload user albums
+  if (authState.user.value) {
+    albumState.loadUserAlbums(authState.user.value.id)
+  }
+  showAddToAlbumModal.value = true
+}
+
 // Close user menu on outside click
 const handleClickOutside = (e: MouseEvent) => {
   if (userMenuRef.value && !userMenuRef.value.contains(e.target as Node)) {
@@ -1094,6 +1310,10 @@ onMounted(async () => {
 
   await loadTracks()
   await loadUserFavorites()
+  await loadFavoriteCounts()
+
+  // Load albums
+  albumState.loadAllAlbums()
 
   window.addEventListener('resize', checkMobile)
   document.addEventListener('click', handleClickOutside)

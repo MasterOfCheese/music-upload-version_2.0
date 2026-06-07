@@ -378,15 +378,33 @@ export const removeFromUserFavorites = async (trackId: string, userIp: string) =
 export const getTrackFavoriteCount = async (trackId: string) => {
   try {
     const { data, error } = await supabase
-      .from('user_favorites')
-      .select('id')
-      .eq('track_id', trackId)
+      .from('tracks')
+      .select('favorite_count')
+      .eq('id', trackId)
+      .maybeSingle()
 
     if (error) throw error
-    return data?.length || 0
+    return data?.favorite_count || 0
   } catch (error) {
     console.error('Error getting track favorite count:', error)
     return 0
+  }
+}
+
+export const getTracksFavoriteCounts = async (trackIds: string[]) => {
+  try {
+    const { data, error } = await supabase
+      .from('tracks')
+      .select('id, favorite_count')
+      .in('id', trackIds)
+
+    if (error) throw error
+    const map: Record<string, number> = {}
+    data?.forEach(t => { map[t.id] = t.favorite_count || 0 })
+    return map
+  } catch (error) {
+    console.error('Error getting tracks favorite counts:', error)
+    return {} as Record<string, number>
   }
 }
 
@@ -526,5 +544,229 @@ export const simulatePlayFromDifferentUser = async (trackId: string) => {
   } catch (error) {
     console.error('Error simulating play:', error)
     throw error
+  }
+}
+
+// ALBUM FUNCTIONS
+
+export const createAlbum = async (title: string, description?: string, coverUrl?: string) => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data, error } = await supabase
+      .from('albums')
+      .insert([{
+        title,
+        description: description || null,
+        cover_url: coverUrl || null,
+        user_id: user.id
+      }])
+      .select()
+      .maybeSingle()
+
+    if (error) throw error
+    return { success: true, data }
+  } catch (error: any) {
+    console.error('Error creating album:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const updateAlbum = async (albumId: string, updates: { title?: string; description?: string; cover_url?: string }) => {
+  try {
+    const { data, error } = await supabase
+      .from('albums')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', albumId)
+      .select()
+      .maybeSingle()
+
+    if (error) throw error
+    return { success: true, data }
+  } catch (error: any) {
+    console.error('Error updating album:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const deleteAlbum = async (albumId: string) => {
+  try {
+    const { error } = await supabase
+      .from('albums')
+      .delete()
+      .eq('id', albumId)
+
+    if (error) throw error
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error deleting album:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const getAlbumsByUser = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('albums')
+      .select(`
+        *,
+        album_tracks(count)
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data?.map(album => ({
+      ...album,
+      track_count: album.album_tracks?.[0]?.count ?? 0
+    })) || []
+  } catch (error) {
+    console.error('Error getting albums by user:', error)
+    return []
+  }
+}
+
+export const getAllAlbums = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('albums')
+      .select(`
+        *,
+        profiles(username),
+        album_tracks(count)
+      `)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data?.map(album => ({
+      ...album,
+      username: album.profiles?.username,
+      track_count: album.album_tracks?.[0]?.count ?? 0
+    })) || []
+  } catch (error) {
+    console.error('Error getting all albums:', error)
+    return []
+  }
+}
+
+export const getAlbumWithTracks = async (albumId: string) => {
+  try {
+    const { data: album, error: albumError } = await supabase
+      .from('albums')
+      .select(`*, profiles(username)`)
+      .eq('id', albumId)
+      .maybeSingle()
+
+    if (albumError) throw albumError
+    if (!album) return null
+
+    const { data: albumTracks, error: tracksError } = await supabase
+      .from('album_tracks')
+      .select('*, tracks(*)')
+      .eq('album_id', albumId)
+      .order('position', { ascending: true })
+
+    if (tracksError) throw tracksError
+
+    return {
+      ...album,
+      username: album.profiles?.username,
+      tracks: albumTracks || []
+    }
+  } catch (error) {
+    console.error('Error getting album with tracks:', error)
+    return null
+  }
+}
+
+export const addTrackToAlbum = async (albumId: string, trackId: string, position?: number) => {
+  try {
+    // Get next position if not specified
+    if (position === undefined) {
+      const { data: existing } = await supabase
+        .from('album_tracks')
+        .select('position')
+        .eq('album_id', albumId)
+        .order('position', { ascending: false })
+        .limit(1)
+
+      position = (existing?.[0]?.position ?? -1) + 1
+    }
+
+    const { data, error } = await supabase
+      .from('album_tracks')
+      .insert([{
+        album_id: albumId,
+        track_id: trackId,
+        position
+      }])
+      .select()
+
+    if (error) {
+      if (error.code === '23505') return { success: false, error: 'Bài hát đã có trong album' }
+      throw error
+    }
+
+    return { success: true, data: data?.[0] }
+  } catch (error: any) {
+    console.error('Error adding track to album:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const removeTrackFromAlbum = async (albumId: string, trackId: string) => {
+  try {
+    const { error } = await supabase
+      .from('album_tracks')
+      .delete()
+      .eq('album_id', albumId)
+      .eq('track_id', trackId)
+
+    if (error) throw error
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error removing track from album:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const reorderAlbumTracks = async (albumId: string, trackOrders: { track_id: string; position: number }[]) => {
+  try {
+    for (const item of trackOrders) {
+      await supabase
+        .from('album_tracks')
+        .update({ position: item.position })
+        .eq('album_id', albumId)
+        .eq('track_id', item.track_id)
+    }
+    return { success: true }
+  } catch (error: any) {
+    console.error('Error reordering album tracks:', error)
+    return { success: false, error: error.message }
+  }
+}
+
+export const uploadAlbumCover = async (albumId: string, file: File) => {
+  try {
+    const fileExt = file.name.split('.').pop()
+    const filePath = `album-covers/${albumId}-${Date.now()}.${fileExt}`
+
+    const { error: uploadError } = await supabase.storage
+      .from(STORAGE_BUCKET)
+      .upload(filePath, file, { upsert: true })
+
+    if (uploadError) throw uploadError
+
+    const { data: { publicUrl } } = supabase.storage
+      .from(STORAGE_BUCKET)
+      .getPublicUrl(filePath)
+
+    await updateAlbum(albumId, { cover_url: publicUrl + '?t=' + Date.now() })
+
+    return { success: true, url: publicUrl }
+  } catch (error: any) {
+    console.error('Error uploading album cover:', error)
+    return { success: false, error: error.message }
   }
 }

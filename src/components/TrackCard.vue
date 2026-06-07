@@ -36,9 +36,15 @@
       </div>
       <p class="text-sm text-gray-500 dark:text-dark-500 truncate">{{ track.artist }}</p>
       
-      <!-- Play Count -->
+      <!-- Play Count & Favorites -->
       <div class="flex items-center justify-between text-xs text-gray-400 dark:text-dark-400">
-        <span>{{ track.playCount || 0 }} lượt nghe</span>
+        <div class="flex items-center gap-2">
+          <span>{{ track.playCount || 0 }} lượt nghe</span>
+          <span class="flex items-center gap-0.5">
+            <HeartIcon class="w-3 h-3" :class="isFavorite ? 'fill-current text-red-500' : ''" />
+            {{ track.favoriteCount || 0 }}
+          </span>
+        </div>
         <span>{{ formatDuration(track.duration) }}</span>
       </div>
       

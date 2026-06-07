@@ -11,15 +11,20 @@
           {{ track.artist }}
         </p>
       </div>
-      
+
       <!-- Secondary info row -->
       <div class="flex items-center justify-between mb-4">
         <div class="flex items-center space-x-3 text-xs text-gray-400 dark:text-dark-400">
           <span>{{ formatDuration(track.duration) }}</span>
           <span>•</span>
           <span>{{ track.playCount || 0 }} lượt nghe</span>
+          <span>•</span>
+          <span class="flex items-center gap-0.5">
+            <HeartIcon class="w-3 h-3" :class="isFavorite ? 'fill-current text-red-500' : ''" />
+            {{ track.favoriteCount || 0 }}
+          </span>
         </div>
-        
+
         <!-- Mobile Action Buttons -->
         <div class="flex items-center space-x-2">
           <button
@@ -29,14 +34,22 @@
           >
             <HeartIcon :class="isFavorite ? 'fill-current' : ''" class="w-5 h-5" />
           </button>
-          
+
           <button
             @click="$emit('share', track)"
             class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-200 transition-colors text-gray-400 hover:text-blue-500"
           >
             <ShareIcon class="w-5 h-5" />
           </button>
-          
+
+          <button
+            @click="$emit('add-to-album', track.id)"
+            class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-200 transition-colors text-gray-400 hover:text-soundcloud-orange"
+            title="Thêm vào album"
+          >
+            <FolderPlusIcon class="w-5 h-5" />
+          </button>
+
           <button
             @click="$emit('delete', track.id)"
             class="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-dark-200 transition-colors text-gray-400 hover:text-red-500"
@@ -45,7 +58,7 @@
           </button>
         </div>
       </div>
-      
+
       <!-- Play button and waveform row -->
       <div class="flex items-center space-x-4">
         <button
@@ -55,7 +68,7 @@
           <PlayIcon v-if="!isPlaying" class="w-6 h-6 ml-0.5" />
           <PauseIcon v-else class="w-6 h-6" />
         </button>
-        
+
         <!-- Mobile Waveform - Takes remaining space -->
         <div class="flex-1 min-w-0">
           <WaveformDisplay
@@ -89,11 +102,15 @@
             <div class="flex items-center space-x-4 mt-1">
               <p class="text-sm text-gray-500 dark:text-dark-500 truncate">{{ track.artist }}</p>
               <span class="text-xs text-gray-400 dark:text-dark-400">{{ track.playCount || 0 }} lượt nghe</span>
+              <span class="text-xs text-gray-400 dark:text-dark-400 flex items-center gap-0.5">
+                <HeartIcon class="w-3 h-3" :class="isFavorite ? 'fill-current text-red-500' : ''" />
+                {{ track.favoriteCount || 0 }}
+              </span>
             </div>
           </div>
           <div class="flex items-center space-x-2 ml-4">
             <span class="text-sm text-gray-400 dark:text-dark-400">{{ formatDuration(track.duration) }}</span>
-            
+
             <!-- Desktop Action Buttons -->
             <button
               @click="$emit('toggle-favorite', track.id)"
@@ -102,14 +119,22 @@
             >
               <HeartIcon :class="isFavorite ? 'fill-current' : ''" class="w-5 h-5" />
             </button>
-            
+
             <button
               @click="$emit('share', track)"
               class="btn-icon w-10 h-10 text-gray-400 hover:text-blue-500"
             >
               <ShareIcon class="w-5 h-5" />
             </button>
-            
+
+            <button
+              @click="$emit('add-to-album', track.id)"
+              class="btn-icon w-10 h-10 text-gray-400 hover:text-soundcloud-orange"
+              title="Thêm vào album"
+            >
+              <FolderPlusIcon class="w-5 h-5" />
+            </button>
+
             <button
               @click="$emit('delete', track.id)"
               class="btn-icon w-10 h-10 text-gray-400 hover:text-red-500"
@@ -137,6 +162,7 @@
 
 <script setup lang="ts">
 import { PlayIcon, PauseIcon, TrashIcon, HeartIcon, ShareIcon } from '@heroicons/vue/24/solid'
+import { FolderPlusIcon } from '@heroicons/vue/24/outline'
 import WaveformDisplay from './WaveformDisplay.vue'
 import type { Track } from '../types/Track'
 
@@ -156,6 +182,7 @@ interface Emits {
   (e: 'seek', time: number): void
   (e: 'toggle-favorite', trackId: string): void
   (e: 'share', track: Track): void
+  (e: 'add-to-album', trackId: string): void
 }
 
 const props = withDefaults(defineProps<Props>(), {
